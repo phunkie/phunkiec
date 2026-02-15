@@ -1,0 +1,12 @@
+$(macro) {
+    for {
+        $(layer() as binding) <- $(layer() as monad)
+        $(layer() as rest_binding) <- $(layer() as rest_monad)
+    } yield $(layer() as yield_expr)
+} >> {
+    $(monad)->flatMap(function($(binding)) {
+        return $(rest_monad)->map(function($(rest_binding)) use ($(binding)) {
+            return $(yield_expr);
+        });
+    })
+}

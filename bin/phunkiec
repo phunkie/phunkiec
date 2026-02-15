@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
+    if (file_exists($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+
+use Phunkie\Compiler\Console\CompileCommand;
+use Symfony\Component\Console\Application;
+
+$application = new Application('phunkiec', '0.1.0');
+$command = new CompileCommand();
+$application->add($command);
+$application->setDefaultCommand($command->getName(), true);
+$application->run();

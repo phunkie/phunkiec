@@ -30,5 +30,8 @@
         "bin/phunkiec"
     ],
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "require-dev": {
+        "phpspec/phpspec": "9.x-dev"
+    }
 }

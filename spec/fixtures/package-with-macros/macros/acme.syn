@@ -1,0 +1,2 @@
+# fixture macro
+$(macro) { acme_marker } >> { ACME }

@@ -1,0 +1,4 @@
+{
+    "name": "acme/missing-dir",
+    "extra": { "phunkiec": { "macros": "does-not-exist/" } }
+}

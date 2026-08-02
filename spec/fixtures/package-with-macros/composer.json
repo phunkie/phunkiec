@@ -1,0 +1,4 @@
+{
+    "name": "acme/with-macros",
+    "extra": { "phunkiec": { "macros": "macros/" } }
+}

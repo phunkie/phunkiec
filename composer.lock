@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "72ed498067669f428c35b79469afc73f",
+    "content-hash": "1cff1d8160e33b35e7fec6b5fbaa81ff",
     "packages": [
         {
             "name": "marcelloduarte/syn",
@@ -939,11 +939,272 @@
             "time": "2026-01-12T12:37:40+00:00"
         }
     ],
-    "packages-dev": [],
+    "packages-dev": [
+        {
+            "name": "cucumber/gherkin",
+            "version": "v39.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cucumber/gherkin-php.git",
+                "reference": "c3b8380d208970273d059d7758cb1c0decd916e5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/cucumber/gherkin-php/zipball/c3b8380d208970273d059d7758cb1c0decd916e5",
+                "reference": "c3b8380d208970273d059d7758cb1c0decd916e5",
+                "shasum": ""
+            },
+            "require": {
+                "cucumber/messages": ">=31.0.0 <34",
+                "ext-mbstring": "*",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.51",
+                "phpunit/phpunit": "^10.5 || ^11.0 || ^12.0 || ^13.0",
+                "psalm/plugin-phpunit": "^0.19.5",
+                "vimeo/psalm": "6.14.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Cucumber\\Gherkin\\": [
+                        "src/",
+                        "src-generated/"
+                    ]
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Gherkin parser",
+            "support": {
+                "source": "https://github.com/cucumber/gherkin-php/tree/v39.1.0"
+            },
+            "time": "2026-05-06T14:31:29+00:00"
+        },
+        {
+            "name": "cucumber/messages",
+            "version": "v33.0.4",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cucumber/messages-php.git",
+                "reference": "621f8ebc267a47c6ab8e8e3b09123d769aa3ddab"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/cucumber/messages-php/zipball/621f8ebc267a47c6ab8e8e3b09123d769aa3ddab",
+                "reference": "621f8ebc267a47c6ab8e8e3b09123d769aa3ddab",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3",
+                "phpunit/phpunit": "^13",
+                "psalm/plugin-phpunit": "^0.19",
+                "ramsey/uuid": "^4",
+                "vimeo/psalm": "^6"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Cucumber\\Messages\\": [
+                        "src",
+                        "src-generated"
+                    ]
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "JSON schema-based messages for Cucumber's inter-process communication",
+            "support": {
+                "source": "https://github.com/cucumber/messages-php/tree/v33.0.4"
+            },
+            "time": "2026-06-24T19:53:04+00:00"
+        },
+        {
+            "name": "phpspec/phpspec",
+            "version": "9.x-dev",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phpspec/phpspec.git",
+                "reference": "44cf43f649feecd897a950fd3559ad80d6dad486"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phpspec/phpspec/zipball/44cf43f649feecd897a950fd3559ad80d6dad486",
+                "reference": "44cf43f649feecd897a950fd3559ad80d6dad486",
+                "shasum": ""
+            },
+            "require": {
+                "cucumber/gherkin": "^39.0",
+                "ext-mbstring": "*",
+                "ext-tokenizer": "*",
+                "php": "8.2.* || 8.3.* || 8.4.* || 8.5.*",
+                "symfony/console": "^7.0 || ^8.0",
+                "symfony/yaml": "^7.0 || ^8.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.75",
+                "papi-ai/google": "^0.9",
+                "papi-ai/papi-core": "^0.9",
+                "phpstan/phpstan": "^2.1"
+            },
+            "suggest": {
+                "ext-curl": "Required for AI features (pair, next, refactor)",
+                "ext-dom": "For JUnit XML and Clover coverage reports",
+                "ext-posix": "For terminal width detection",
+                "ext-readline": "For interactive pair mode",
+                "ext-xdebug": "For code coverage reporting",
+                "papi-ai/anthropic": "Anthropic Claude AI provider",
+                "papi-ai/google": "Google Gemini AI provider",
+                "papi-ai/openai": "OpenAI GPT AI provider",
+                "papi-ai/papi-core": "Required for AI features (pair, next, refactor)"
+            },
+            "bin": [
+                "bin/phpspec"
+            ],
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "9.0.x-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/PhpSpec/functions.php",
+                    "src/PhpSpec/Mock/functions.php",
+                    "src/PhpSpec/StoryBDD/functions.php",
+                    "src/PhpSpec/Browser/functions.php"
+                ],
+                "psr-0": {
+                    "PhpSpec": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Konstantin Kudryashov",
+                    "email": "ever.zet@gmail.com",
+                    "homepage": "http://everzet.com"
+                },
+                {
+                    "name": "Marcello Duarte",
+                    "homepage": "http://marcelloduarte.net/"
+                },
+                {
+                    "name": "Ciaran McNulty",
+                    "homepage": "https://ciaranmcnulty.com/"
+                }
+            ],
+            "description": "Specification-oriented BDD framework for PHP 8.2+",
+            "homepage": "http://phpspec.net/",
+            "keywords": [
+                "BDD",
+                "SpecBDD",
+                "TDD",
+                "spec",
+                "specification",
+                "testing",
+                "tests"
+            ],
+            "support": {
+                "issues": "https://github.com/phpspec/phpspec/issues",
+                "source": "https://github.com/phpspec/phpspec/tree/9.x"
+            },
+            "time": "2026-07-19T13:55:58+00:00"
+        },
+        {
+            "name": "symfony/yaml",
+            "version": "v8.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/yaml.git",
+                "reference": "8e4cdd4311683516be06944f4b85244063cdb886"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/8e4cdd4311683516be06944f4b85244063cdb886",
+                "reference": "8e4cdd4311683516be06944f4b85244063cdb886",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.4.1",
+                "symfony/polyfill-ctype": "^1.8"
+            },
+            "conflict": {
+                "symfony/console": "<7.4"
+            },
+            "require-dev": {
+                "symfony/console": "^7.4|^8.0",
+                "yaml/yaml-test-suite": "*"
+            },
+            "bin": [
+                "Resources/bin/yaml-lint"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Component\\Yaml\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Tests/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fabien Potencier",
+                    "email": "fabien@symfony.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Loads and dumps YAML files",
+            "homepage": "https://symfony.com",
+            "support": {
+                "source": "https://github.com/symfony/yaml/tree/v8.1.1"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/nicolas-grekas",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2026-06-09T11:06:24+00:00"
+        }
+    ],
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "marcelloduarte/syn": 20
+        "marcelloduarte/syn": 20,
+        "phpspec/phpspec": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

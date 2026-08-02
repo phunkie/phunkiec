@@ -1,12 +1,206 @@
+# For-comprehensions.
+#
+# A comprehension is desugared one generator at a time. The intermediate forms
+# __for (a comprehension that yields) and __each (one that iterates) carry the
+# generators still to be desugared, together with the variables that the
+# generators already desugared have bound: __uses(...) for those, or __none
+# when there are none. The recursion ends on the last generator, which maps
+# rather than flatMaps.
+#
+# Rules are tried in the order they are written, so the specific ones come
+# first: a wildcard or a tuple would otherwise be taken for an ordinary binding.
+
+# --- Normalisation -----------------------------------------------------------
+
+# `for (a <- m; b <- n)` is the brace form written on one line.
 $(macro) {
-    for {
-        $(layer() as binding) <- $(layer() as monad)
-        $(layer() as rest_binding) <- $(layer() as rest_monad)
-    } yield $(layer() as yield_expr)
+    for ( $(clause() as binding) <- $(layer() as generators) )
 } >> {
-    $(monad)->flatMap(function($(binding)) {
-        return $(rest_monad)->map(function($(rest_binding)) use ($(binding)) {
-            return $(yield_expr);
-        });
-    })
+    for { $(binding) <- $(generators) }
+}
+
+# --- Seeds -------------------------------------------------------------------
+
+# A yielded tuple is built once, before the recursion begins.
+$(macro) {
+    for { $(layer() as generators) } yield ( ) ;
+} >> {
+    __for(__none){ $(generators) } yield Unit();
+}
+
+$(macro) {
+    for { $(layer() as generators) } yield ( $(layer() as first) , $(layer() as second) , $(layer() as third) ) ;
+} >> {
+    __for(__none){ $(generators) } yield Tuple($(first), $(second), $(third));
+}
+
+$(macro) {
+    for { $(layer() as generators) } yield ( $(layer() as first) , $(layer() as second) ) ;
+} >> {
+    __for(__none){ $(generators) } yield Pair($(first), $(second));
+}
+
+$(macro) {
+    for { $(layer() as generators) } yield $(layer() as yielded) ;
+} >> {
+    __for(__none){ $(generators) } yield $(yielded);
+}
+
+# A comprehension with a body iterates instead of yielding.
+$(macro) {
+    for { $(layer() as generators) } { $(layer() as body) }
+} >> {
+    __each(__none){ $(generators) } __do { $(body) }
+}
+
+# --- Guards ------------------------------------------------------------------
+
+# `if` filters the generator it follows, whether written beside it or below it.
+# Filtering a generator leaves an ordinary one behind, for the rules further down.
+$(macro) {
+    __for(__uses($(layer() as uses))){ $(clause() as binding) <- $(clause() as monad) if $(clause() as guard) $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    __for(__uses($(uses))){ $(binding) <- $(monad)->withFilter(function ($(binding)) use ($(uses)) { return $(guard); }) $(rest) } yield $(yielded);
+}
+
+$(macro) {
+    __for(__none){ $(clause() as binding) <- $(clause() as monad) if $(clause() as guard) $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    __for(__none){ $(binding) <- $(monad)->withFilter(function ($(binding)) { return $(guard); }) $(rest) } yield $(yielded);
+}
+
+# --- Wildcards ---------------------------------------------------------------
+
+# `_` binds nothing, so it never joins the variables passed further in.
+$(macro) {
+    __for(__uses($(layer() as uses))){ _ <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($_) use ($(uses)) { return __for(__uses($(uses))){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ _ <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($_) { return __for(__none){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__uses($(layer() as uses))){ _ <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($_) use ($(uses)) { return $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ _ <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($_) { return $(yielded); });
+}
+
+# --- Tuple patterns ----------------------------------------------------------
+
+# The tuple is bound to a variable of the macro's own and unpacked into the
+# names the pattern asks for. A pair is matched before a single, or the single
+# would take `($b, $c)` for one very odd name.
+$(macro) {
+    __for(__uses($(layer() as uses))){ ( $(layer() as first) , $(layer() as second) ) <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(fresh(t))) use ($(uses)) { $(first) = $(fresh(t))->_1; $(second) = $(fresh(t))->_2; return __for(__uses($(uses), $(first), $(second))){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ ( $(layer() as first) , $(layer() as second) ) <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(fresh(t))) { $(first) = $(fresh(t))->_1; $(second) = $(fresh(t))->_2; return __for(__uses($(first), $(second))){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__uses($(layer() as uses))){ ( $(layer() as first) , $(layer() as second) ) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(fresh(t))) use ($(uses)) { $(first) = $(fresh(t))->_1; $(second) = $(fresh(t))->_2; return $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ ( $(layer() as first) , $(layer() as second) ) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(fresh(t))) { $(first) = $(fresh(t))->_1; $(second) = $(fresh(t))->_2; return $(yielded); });
+}
+
+$(macro) {
+    __for(__uses($(layer() as uses))){ ( $(layer() as first) ) <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(fresh(t))) use ($(uses)) { $(first) = $(fresh(t))->_1; return __for(__uses($(uses), $(first))){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ ( $(layer() as first) ) <- $(clause() as monad) $(clause() as binding) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(fresh(t))) { $(first) = $(fresh(t))->_1; return __for(__uses($(first))){ $(binding) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__uses($(layer() as uses))){ ( $(layer() as first) ) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(fresh(t))) use ($(uses)) { $(first) = $(fresh(t))->_1; return $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ ( $(layer() as first) ) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(fresh(t))) { $(first) = $(fresh(t))->_1; return $(yielded); });
+}
+
+# --- Ordinary bindings -------------------------------------------------------
+
+# Every generator but the last flatMaps, and passes its binding further in.
+$(macro) {
+    __for(__uses($(layer() as uses))){ $(clause() as binding) <- $(clause() as monad) $(clause() as next) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(binding)) use ($(uses)) { return __for(__uses($(uses), $(binding))){ $(next) <- $(rest) } yield $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ $(clause() as binding) <- $(clause() as monad) $(clause() as next) <- $(layer() as rest) } yield $(layer() as yielded);
+} >> {
+    $(monad)->flatMap(function ($(binding)) { return __for(__uses($(binding))){ $(next) <- $(rest) } yield $(yielded); });
+}
+
+# The last generator maps, and the comprehension is done.
+$(macro) {
+    __for(__uses($(layer() as uses))){ $(clause() as binding) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(binding)) use ($(uses)) { return $(yielded); });
+}
+
+$(macro) {
+    __for(__none){ $(clause() as binding) <- $(clause() as monad) } yield $(layer() as yielded);
+} >> {
+    $(monad)->map(function ($(binding)) { return $(yielded); });
+}
+
+# --- Iteration ---------------------------------------------------------------
+
+# The same recursion, with withEach in place of flatMap and map, and a body in
+# place of a yielded expression.
+$(macro) {
+    __each(__uses($(layer() as uses))){ $(clause() as binding) <- $(clause() as monad) $(clause() as next) <- $(layer() as rest) } __do { $(layer() as body) }
+} >> {
+    $(monad)->withEach(function ($(binding)) use ($(uses)) { __each(__uses($(uses), $(binding))){ $(next) <- $(rest) } __do { $(body) } });
+}
+
+$(macro) {
+    __each(__none){ $(clause() as binding) <- $(clause() as monad) $(clause() as next) <- $(layer() as rest) } __do { $(layer() as body) }
+} >> {
+    $(monad)->withEach(function ($(binding)) { __each(__uses($(binding))){ $(next) <- $(rest) } __do { $(body) } });
+}
+
+$(macro) {
+    __each(__uses($(layer() as uses))){ $(clause() as binding) <- $(clause() as monad) } __do { $(layer() as body) }
+} >> {
+    $(monad)->withEach(function ($(binding)) use ($(uses)) { $(body) });
+}
+
+$(macro) {
+    __each(__none){ $(clause() as binding) <- $(clause() as monad) } __do { $(layer() as body) }
+} >> {
+    $(monad)->withEach(function ($(binding)) { $(body) });
 }

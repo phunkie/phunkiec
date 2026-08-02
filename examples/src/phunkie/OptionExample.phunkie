@@ -2,5 +2,5 @@
 
 $result = for {
     $a <- Some(42)
-    $b <- Some($a + 1)
-} yield $b;
+    $b <- Some($a + 2)
+} yield $a;

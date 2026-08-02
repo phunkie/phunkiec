@@ -14,12 +14,29 @@ class PhunkieProcessor
     private Transformer $transformer;
     private MacroLoader $macroLoader;
 
+    private const MACROS = __DIR__ . '/../../macros';
+
     public function __construct(Configuration $configuration)
     {
         $this->macroLoader = new MacroLoader();
         $this->transformer = new Transformer($configuration, $this->macroLoader);
 
+        // Precedence, highest first, because the first matching rule wins:
+        // explicitly supplied macros (--macro-file/--macro-dir), then those
+        // discovered from installed packages, then the bundled ones. A library
+        // shipping a rule for its own type therefore wins where the surface
+        // syntax collides with a bundled rule (e.g. effect's IO vs Cats\IO),
+        // and an explicit CLI macro overrides everything.
         $this->loadConfigurationMacros($configuration);
+        $this->loadDiscoveredMacros();
+        $this->macroLoader->loadFromDirectory(self::MACROS);
+    }
+
+    private function loadDiscoveredMacros(): void
+    {
+        foreach (MacroDiscovery::fromInstalledPackages()->discover() as $directory) {
+            $this->macroLoader->loadFromDirectory($directory);
+        }
     }
 
     public function process(string $input, string $output): array
@@ -42,8 +59,9 @@ class PhunkieProcessor
         $lines = substr_count($content, "\n") + 1;
 
         try {
-            $content = $this->expandForComprehensions($content);
-            $transformed = $this->transformer->transform($content, $file);
+            $transformed = $content === ''
+                ? ''
+                : $this->transformer->transform($content, $file);
 
             $outputDir = dirname($outputPath);
             if (!is_dir($outputDir)) {
@@ -83,27 +101,6 @@ class PhunkieProcessor
         }
 
         return $results;
-    }
-
-    private function expandForComprehensions(string $code): string
-    {
-        return preg_replace_callback(
-            '/for\s*\{\s*(\$\w+)\s*<-\s*(.+?)\s+(\$\w+)\s*<-\s*(.+?)\s*\}\s*yield\s+(.+?)(?=\s*;)/s',
-            function (array $m): string {
-                $binding = $m[1];
-                $monad = trim($m[2]);
-                $restBinding = $m[3];
-                $restMonad = trim($m[4]);
-                $yieldExpr = trim($m[5]);
-
-                return $monad . '->flatMap(function(' . $binding . ') {' . "\n"
-                    . '        return ' . $restMonad . '->map(function(' . $restBinding . ') use (' . $binding . ') {' . "\n"
-                    . '            return ' . $yieldExpr . ';' . "\n"
-                    . '        });' . "\n"
-                    . '    })';
-            },
-            $code
-        );
     }
 
     private function loadConfigurationMacros(Configuration $configuration): void

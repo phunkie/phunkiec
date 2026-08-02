@@ -1,0 +1,239 @@
+# Pattern matching.
+#
+# `subject match { case, case }` becomes a native match on `true`, where each
+# case asks phunkie's pmatch whether it matches. The subject is bound once, to
+# $on, so that it is evaluated once however many cases there are — and so that
+# a case is free to deconstruct it.
+#
+# __cases carries the cases still to be desugared, one per rule application.
+
+$(macro) {
+    $(layer() as subject) match { $(layer() as cases) }
+} >> {
+    (fn($on) => match (true) { __cases{ $(cases) } })(pmatch($(subject)))
+}
+
+# A case may be guarded by a condition, which is asked only once the pattern has
+# matched — and so only once the pattern has bound what the condition reads.
+# These come first, or the guard would be taken for part of the pattern.
+$(macro) {
+    __cases{ $(clause() as pattern) if $(clause() as guard) => $(clause() as result) , $(layer() as rest) }
+} >> {
+    $on($(pattern)) && $(guard) => $(result), __cases{ $(rest) }
+}
+
+$(macro) {
+    __cases{ $(clause() as pattern) if $(clause() as guard) => $(clause() as result) }
+} >> {
+    $on($(pattern)) && $(guard) => $(result),
+}
+
+# Every case but the last is followed by a comma.
+$(macro) {
+    __cases{ $(clause() as pattern) => $(clause() as result) , $(layer() as rest) }
+} >> {
+    $on($(pattern)) => $(result), __cases{ $(rest) }
+}
+
+# The last one closes the match. `_` needs no rule of its own: pmatch reads it
+# as the wildcard, so `$on(_)` is the case that always matches.
+$(macro) {
+    __cases{ $(clause() as pattern) => $(clause() as result) }
+} >> {
+    $on($(pattern)) => $(result),
+}
+
+# --- Deconstruction ----------------------------------------------------------
+#
+# A value is deconstructed by writing its constructor: `Some($x)` takes a Some
+# apart, `ImmList($x, $xs)` takes a list apart into a head and a tail. Each
+# shape has a supporting function behind it, and these rules put it there. The
+# names are written out in full, so that deconstructing needs no import.
+#
+# The parts are captured as T_VARIABLE, because a supporting function binds them
+# by reference: only a variable can be bound to. That is what keeps the two
+# other ways of writing a pattern working, both of which pmatch reads by itself:
+#
+#   Some(42)  matches a Some holding 42, by value
+#   Some(_)   matches any Some, by wildcard
+#
+# Neither is a variable, so neither matches these rules, and both are left alone.
+#
+# The rules are anchored on $on, which only the rules above ever write, so a Some
+# or an ImmList built anywhere else in the file is left alone too.
+
+# A tuple is deconstructed by writing its parentheses. A tuple of two is a Pair.
+# The longer one is written first, so that a tuple of three is not read as a pair
+# followed by something odd.
+$(macro) {
+    $on( ( $(T_VARIABLE as first) , $(T_VARIABLE as second) , $(T_VARIABLE as third) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Tuple($(first), $(second), $(third)))
+}
+
+$(macro) {
+    $on( ( $(T_VARIABLE as first) , $(T_VARIABLE as second) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Pair($(first), $(second)))
+}
+
+# Option
+$(macro) {
+    $on( Some( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Some($(value)))
+}
+
+# Either
+$(macro) {
+    $on( Right( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Right($(value)))
+}
+
+$(macro) {
+    $on( Left( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Left($(value)))
+}
+
+# Tuples, written out by name. Two of them make a Pair.
+$(macro) {
+    $on( Tuple( $(T_VARIABLE as first) , $(T_VARIABLE as second) , $(T_VARIABLE as third) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Tuple($(first), $(second), $(third)))
+}
+
+$(macro) {
+    $on( Tuple( $(T_VARIABLE as first) , $(T_VARIABLE as second) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Pair($(first), $(second)))
+}
+
+$(macro) {
+    $on( Pair( $(T_VARIABLE as first) , $(T_VARIABLE as second) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Pair($(first), $(second)))
+}
+
+# Lists built from a head and what follows it
+$(macro) {
+    $on( Nel( $(T_VARIABLE as head) , $(T_VARIABLE as tail) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Nel($(head), $(tail)))
+}
+
+$(macro) {
+    $on( Cons( $(T_VARIABLE as head) , $(T_VARIABLE as tail) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Cons($(head), $(tail)))
+}
+
+# Sets, matched only when they hold as many elements as the pattern names
+$(macro) {
+    $on( ImmSet( $(T_VARIABLE as first) , $(T_VARIABLE as second) , $(T_VARIABLE as third) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ImmSet($(first), $(second), $(third)))
+}
+
+$(macro) {
+    $on( ImmSet( $(T_VARIABLE as first) , $(T_VARIABLE as second) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ImmSet($(first), $(second)))
+}
+
+# Values that wrap one thing
+$(macro) {
+    $on( Id( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Id($(value)))
+}
+
+$(macro) {
+    $on( ImmString( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ImmString($(value)))
+}
+
+$(macro) {
+    $on( ImmInteger( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ImmInteger($(value)))
+}
+
+# Functions that have been wrapped
+$(macro) {
+    $on( Function1( $(T_VARIABLE as f) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Function1($(f)))
+}
+
+$(macro) {
+    $on( IO( $(T_VARIABLE as thunk) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\IO($(thunk)))
+}
+
+$(macro) {
+    $on( State( $(T_VARIABLE as run) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\State($(run)))
+}
+
+$(macro) {
+    $on( Reader( $(T_VARIABLE as run) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Reader($(run)))
+}
+
+$(macro) {
+    $on( Kleisli( $(T_VARIABLE as run) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Kleisli($(run)))
+}
+
+# Monad transformers
+$(macro) {
+    $on( OptionT( $(T_VARIABLE as monad) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\OptionT($(monad)))
+}
+
+$(macro) {
+    $on( EitherT( $(T_VARIABLE as monad) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\EitherT($(monad)))
+}
+
+$(macro) {
+    $on( StateT( $(T_VARIABLE as run) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\StateT($(run)))
+}
+
+# Validation
+$(macro) {
+    $on( Success( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Success($(value)))
+}
+
+$(macro) {
+    $on( Failure( $(T_VARIABLE as value) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\Failure($(value)))
+}
+
+# ImmList. Which function is meant is decided by the tail: `Nil` means there is
+# nothing after the head.
+$(macro) {
+    $on( ImmList( $(T_VARIABLE as head) , Nil ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ListNoTail($(head), Nil))
+}
+
+$(macro) {
+    $on( ImmList( $(T_VARIABLE as head) , $(T_VARIABLE as tail) ) )
+} >> {
+    $on(\Phunkie\PatternMatching\Referenced\ListWithTail($(head), $(tail)))
+}

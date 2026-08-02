@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "810e180f27afde1882a789fd958d9328",
+    "content-hash": "aa9562825715ea1475640fa85f0bc32e",
     "packages": [
         {
             "name": "md/syn",
-            "version": "dev-main",
+            "version": "0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MarcelloDuarte/syn.git",
+                "reference": "ec443e0cc9ac604910efd2c9d24d25b18e7a986a"
+            },
             "dist": {
-                "type": "path",
-                "url": "../syn",
-                "reference": "bb772d63b7830601851d4461ad426af3e509ec23"
+                "type": "zip",
+                "url": "https://api.github.com/repos/MarcelloDuarte/syn/zipball/ec443e0cc9ac604910efd2c9d24d25b18e7a986a",
+                "reference": "ec443e0cc9ac604910efd2c9d24d25b18e7a986a",
+                "shasum": ""
             },
             "require": {
                 "nikic/php-parser": "^5.0",
@@ -37,38 +43,7 @@
                     "Syn\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Syn\\Tests\\": "tests/",
-                    "Syn\\Tests\\Integration\\": "tests/Integration/php/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ],
-                "test-coverage": [
-                    "phpunit --coverage-html coverage"
-                ],
-                "coverage-check": [
-                    "phpunit --coverage-clover build/clover.xml",
-                    "php bin/coverage-check build/clover.xml 90"
-                ],
-                "cs-check": [
-                    "php-cs-fixer fix --dry-run --diff"
-                ],
-                "cs-fix": [
-                    "php-cs-fixer fix"
-                ],
-                "stan": [
-                    "phpstan analyse --memory-limit=1G"
-                ],
-                "check": [
-                    "@cs-check",
-                    "@stan",
-                    "@test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -87,9 +62,11 @@
                 "preprocessor",
                 "syntax-extension"
             ],
-            "transport-options": {
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/MarcelloDuarte/syn/issues",
+                "source": "https://github.com/MarcelloDuarte/syn/tree/0.2"
+            },
+            "time": "2026-08-02T21:30:28+00:00"
         },
         {
             "name": "nikic/php-parser",
@@ -1207,7 +1184,6 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "md/syn": 20,
         "phpspec/phpspec": 20
     },
     "prefer-stable": true,

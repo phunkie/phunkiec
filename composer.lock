@@ -4,26 +4,26 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1cff1d8160e33b35e7fec6b5fbaa81ff",
+    "content-hash": "810e180f27afde1882a789fd958d9328",
     "packages": [
         {
-            "name": "marcelloduarte/syn",
+            "name": "md/syn",
             "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "../syn",
-                "reference": "1107bb4d84038f1aa42cf013417ab6d07479dcef"
+                "reference": "bb772d63b7830601851d4461ad426af3e509ec23"
             },
             "require": {
                 "nikic/php-parser": "^5.0",
-                "php": "^8.4",
+                "php": "^8.2 || ^8.3 || ^8.4 || ^8.5",
                 "symfony/console": "^7.0",
                 "symfony/finder": "^7.0"
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.0",
-                "phpstan/phpstan": "^1.10",
-                "phpunit/phpunit": "^10.0"
+                "phpstan/phpstan": "^2.1",
+                "phpunit/phpunit": "^11"
             },
             "bin": [
                 "bin/sync"
@@ -50,6 +50,10 @@
                 "test-coverage": [
                     "phpunit --coverage-html coverage"
                 ],
+                "coverage-check": [
+                    "phpunit --coverage-clover build/clover.xml",
+                    "php bin/coverage-check build/clover.xml 90"
+                ],
                 "cs-check": [
                     "php-cs-fixer fix --dry-run --diff"
                 ],
@@ -57,7 +61,7 @@
                     "php-cs-fixer fix"
                 ],
                 "stan": [
-                    "phpstan analyse"
+                    "phpstan analyse --memory-limit=1G"
                 ],
                 "check": [
                     "@cs-check",
@@ -1203,7 +1207,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "marcelloduarte/syn": 20,
+        "md/syn": 20,
         "phpspec/phpspec": 20
     },
     "prefer-stable": true,

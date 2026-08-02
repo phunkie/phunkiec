@@ -19,7 +19,7 @@ class PhunkieProcessor
     public function __construct(Configuration $configuration)
     {
         $this->macroLoader = new MacroLoader();
-        $this->transformer = new Transformer($configuration, $this->macroLoader);
+        $this->transformer = new Transformer($this->macroLoader);
 
         // Precedence, highest first, because the first matching rule wins:
         // explicitly supplied macros (--macro-file/--macro-dir), then those

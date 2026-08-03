@@ -53,6 +53,10 @@ fixtures are `--PENDING--` except where noted.
       case falls out of the `Nothing` rule and needs no special handling
 - [x] **Subtypes** — `NonEmptyList<Int>` guards the same argument as
       `ImmList<Int>` and leaves non-emptiness to PHP's own declaration
+- [x] **`Option<T>`** — `Some` reports what it holds; `None` cannot, being one
+      shared object, so its type comes from the signature. It satisfies every
+      `Option<A>` under the rule that already accepts an empty list, so there is
+      no new rule to write
 - [x] A parameter with no type argument is left alone — *passes already*
 - [x] A return type with no type argument is left alone — *passes already*
 
@@ -71,13 +75,32 @@ Nothing below is started. This is the whole of the actual work.
       against a collection rather than a collection against a named type.
 - [ ] Decide where the guards live: phunkie, or a runtime shipped with phunkiec
 
+## Blocked on phunkie
+
+- [ ] **`None` reports arity 0, the empty list reports arity 1.** Both are empty
+      containers, but they answer differently:
+
+      ```php
+      ImmList()->getTypeArity();      // 1, vars ["Nothing"]
+      None()->getTypeArity();         // 0, vars []
+      ```
+
+      `Option::getTypeArity()` is `$this->isEmpty() ? 0 : 1`, while `ImmList` is
+      always 1. Arity belongs to the type constructor, not the value: `Option`
+      takes one argument whether or not it holds anything, exactly as an empty
+      list is still a list of something. `ImmList` is the one that has it right.
+
+      Until this is fixed the guard needs a special case for arity 0, which
+      means the same thing as the `Nothing` rule and would be a second way of
+      saying it. Fixing it in phunkie means `None` needs no special handling at
+      all. `showType()` should still answer `"None"`, which is right, and is a
+      separate question from what the arity is.
+
 ## Next to specify
 
-- [ ] **`Option<T>` parameters** — `function getAddress(Option<User> $user)`.
-      Where `None` assignability gets decided, and the reason the singleton
-      decision above matters.
 - [ ] **Two type parameters** — `ImmMap<String, User>`, so arity > 1 is
-      exercised before anything harder.
+      exercised before anything harder. Note phunkie#41: `ImmMap` currently
+      reports its type as `ImmMap<...>` while rendering its value as `Map(...)`.
 
 ## Later
 

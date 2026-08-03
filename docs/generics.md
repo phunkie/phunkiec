@@ -170,3 +170,53 @@ List<Mixed> given
 
 The two read as opposites because they are: `Nothing` accepts because it promises
 nothing, `Mixed` refuses because it promises too little.
+
+## Option, and the absent value
+
+`Option<T>` is the case where the type argument matters most and the value knows
+least:
+
+```php
+function getAddress(Option<User> $user): Option<Address> {
+    return $user->map(fn($u) => $u->address());
+}
+```
+
+`Some` is straightforward. It holds a value, so it can say what it holds:
+
+```php
+Some($user)->getTypeVariables();   // ["User"]
+```
+
+`None` cannot. There is exactly one `None` object in a program, shared by every
+absence in it, so it has nothing to inspect and nowhere to record an answer:
+
+```php
+$a = None();
+$b = Some(42)->filter(fn($n) => $n > 100);       // Option<Int>  -> None
+$c = Some("hello")->filter(fn($s) => false);     // Option<String> -> None
+
+$a === $b;   // true
+$b === $c;   // true, the same object
+```
+
+Tagging that object with `Int` because it came out of an `Option<Int>` would tag
+it for the whole program, including the absence that came from an
+`Option<String>`. So the type of an absent value is never carried by the value.
+
+This is why the type is static. `getAddress(None())` is a call the runtime could
+never check on its own, and it does not have to: the signature says `Option<User>`
+and that is where the argument comes from.
+
+For the guard, `None` behaves exactly as the empty list does. It has committed to
+nothing, so it satisfies every `Option<A>`:
+
+```php
+getAddress(None());       // fine, for the same reason ImmList() is a List<Int>
+getAddress(Some($user));  // fine
+getAddress(Some($order)); // TypeError: Option<Order> given
+```
+
+No new rule: the one that accepts an empty list accepts an absent value, because
+both are empty containers that named no argument.
+

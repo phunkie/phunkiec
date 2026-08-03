@@ -26,13 +26,14 @@ function doubleAll(ImmList $numbers): ImmList
 {
     assertTypeArguments($numbers, 'List<Int>', 'doubleAll', 1, 'numbers');
 
-    return $numbers->map(fn($n) => $n * 2);
+    return assertReturnTypeArguments($numbers->map(fn($n) => $n * 2), 'List<Int>', 'doubleAll');
 }
 ```
 
 The native `ImmList` type declaration is left to PHP, which already enforces it.
-The part PHP cannot express — that it is a list *of integers* — becomes a guard
-at the top of the body.
+The part PHP cannot express — that it is a list *of integers* — becomes a guard.
+The signature made two promises, so there are two guards: one for what comes in,
+one for what goes out.
 
 ## The error
 
@@ -48,6 +49,59 @@ List<String> given
 The wording deliberately matches PHP's own `TypeError`, because as far as the
 caller is concerned nothing unusual has happened: they passed the wrong type and
 were told so.
+
+## Return types
+
+A return type argument is the more useful of the two, because it catches the
+mistake at the point it was made rather than one call later. `map` will happily
+change the element type, and PHP's own `: ImmList` cannot tell:
+
+```php
+function doubleAll(ImmList<Int> $numbers): ImmList<Int> {
+    return $numbers->map(fn($n) => "doubled: " . $n);
+}
+```
+
+```
+TypeError: doubleAll(): Return value must be of type List<Int>, List<String>
+returned
+```
+
+Again the wording is PHP's own, which uses `returned` rather than `given` for
+this position.
+
+Every `return` in the body is guarded, not just the last one, since any of them
+can be the one that lies:
+
+```php
+function firstTwo(ImmList<Int> $numbers): ImmList<Int> {
+    if ($numbers->isEmpty()) {
+        return ImmList();
+    }
+
+    return $numbers->take(2);
+}
+```
+
+```php
+function firstTwo(ImmList $numbers): ImmList
+{
+    assertTypeArguments($numbers, 'List<Int>', 'firstTwo', 1, 'numbers');
+
+    if ($numbers->isEmpty()) {
+        return assertReturnTypeArguments(ImmList(), 'List<Int>', 'firstTwo');
+    }
+
+    return assertReturnTypeArguments($numbers->take(2), 'List<Int>', 'firstTwo');
+}
+```
+
+That first return is the `Nothing` rule doing its job: `ImmList()` is
+`List<Nothing>`, which satisfies `List<Int>`, so the guard passes and the empty
+case needs no special handling.
+
+A function with no return type argument gets no return guard, the same way a
+parameter without one gets no parameter guard.
 
 ## Why this can be checked at all
 

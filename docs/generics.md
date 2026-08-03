@@ -24,9 +24,9 @@ a check where one is needed.
 ```php
 function doubleAll(ImmList $numbers): ImmList
 {
-    assertTypeArguments($numbers, 'List<Int>', 'doubleAll', 1, 'numbers');
+    assertTypeArguments($numbers, ['Int'], 'doubleAll', 1, 'numbers');
 
-    return assertReturnTypeArguments($numbers->map(fn($n) => $n * 2), 'List<Int>', 'doubleAll');
+    return assertReturnTypeArguments($numbers->map(fn($n) => $n * 2), ['Int'], 'doubleAll');
 }
 ```
 
@@ -34,6 +34,19 @@ The native `ImmList` type declaration is left to PHP, which already enforces it.
 The part PHP cannot express — that it is a list *of integers* — becomes a guard.
 The signature made two promises, so there are two guards: one for what comes in,
 one for what goes out.
+
+Note what the guard is given: the type *arguments*, not the whole type. The
+constructor is PHP's business, the arguments are ours, and keeping them apart is
+what makes a subtype work. `NonEmptyList` extends `ImmList`, so
+
+```php
+function head(NonEmptyList $xs): Int
+```
+
+is already enforced by PHP, and the guard beside it only has to agree about
+`Int`. Had the guard compared rendered type names instead, it would have been
+looking for `NonEmptyList<Int>` against a value that reports itself as
+`List<Int>`, and never matched.
 
 ## The error
 
@@ -86,18 +99,18 @@ function firstTwo(ImmList<Int> $numbers): ImmList<Int> {
 ```php
 function firstTwo(ImmList $numbers): ImmList
 {
-    assertTypeArguments($numbers, 'List<Int>', 'firstTwo', 1, 'numbers');
+    assertTypeArguments($numbers, ['Int'], 'firstTwo', 1, 'numbers');
 
     if ($numbers->isEmpty()) {
-        return assertReturnTypeArguments(ImmList(), 'List<Int>', 'firstTwo');
+        return assertReturnTypeArguments(ImmList(), ['Int'], 'firstTwo');
     }
 
-    return assertReturnTypeArguments($numbers->take(2), 'List<Int>', 'firstTwo');
+    return assertReturnTypeArguments($numbers->take(2), ['Int'], 'firstTwo');
 }
 ```
 
-That first return is the `Nothing` rule doing its job: `ImmList()` is
-`List<Nothing>`, which satisfies `List<Int>`, so the guard passes and the empty
+That first return is the `Nothing` rule doing its job: `ImmList()` has `Nothing`
+for its type argument, which satisfies `Int`, so the guard passes and the empty
 case needs no special handling.
 
 A function with no return type argument gets no return guard, the same way a
@@ -105,20 +118,29 @@ parameter without one gets no parameter guard.
 
 ## Why this can be checked at all
 
-Because Phunkie already knows. The type argument is not something phunkiec
-invents and then has to track — it is recoverable from the value at runtime:
+Because Phunkie already knows. The type arguments are not something phunkiec
+invents and then has to track — every `Kind` reports its own, at runtime:
 
 ```php
-ImmList(1, 2, 3)->showType();      // "List<Int>"
-ImmList("a", "b")->showType();     // "List<String>"
-ImmList(1, "a")->showType();       // "List<Mixed>"
-ImmList()->showType();             // "List<Nothing>"
-ImmList(Some(1))->showType();      // "List<Option<Int>>"
+ImmList(1, 2, 3)->getTypeVariables();   // ["Int"]
+ImmList("a", "b")->getTypeVariables();  // ["String"]
+ImmList(1, "a")->getTypeVariables();    // ["Mixed"]
+ImmList()->getTypeVariables();          // ["Nothing"]
+Nel(1, 2, 3)->getTypeVariables();       // ["Int"]
+ImmMap(["a" => 1])->getTypeVariables(); // ["String", "Int"]
 ```
 
 So the guard is a comparison, not an inference. This is why `ImmList` is where
-generics start: the type argument is present in the value, and nesting already
-works.
+generics start: the arguments are present in the value, arity greater than one
+falls out for free, and a subtype reports the same arguments as its parent.
+
+`showType()` renders the same information for a human, and is what the error
+messages use:
+
+```php
+ImmList(1, 2, 3)->showType();      // "List<Int>"
+ImmList(Some(1))->showType();      // "List<Option<Int>>"
+```
 
 ## Empty and mixed lists
 

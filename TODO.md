@@ -41,9 +41,25 @@ surface syntax onto them. The other libraries have none.
 
 ## Generics
 
-- [ ] Decide what a generic looks like in a `.phunkie` file, and what it compiles
-      to: phpdoc `@template` that PHPStan reads, a runtime check, or both
-- [ ] Decide whether generics are checked at compile time, and by what
+Decided and being specified in [GENERICS_TODO.md](GENERICS_TODO.md): angle
+brackets, erased at compile time, with a guard where PHP cannot express the
+constraint itself. Design in [docs/generics.md](docs/generics.md).
+
+## Nullary constructors written without parentheses
+
+`None` and `Nil` are objects, not types. Scala lets you write them bare, and so
+should a `.phunkie` file:
+
+```php
+$maybe = None;
+$empty = Nil;
+```
+
+- [ ] Rewrite a bare `None` to `None()` and a bare `Nil` to `Nil()`
+- [ ] Only where the name stands as a value. `None` inside a pattern is already
+      handled by the pattern matching macros, and a class or constant that
+      happens to be called `None` must be left alone
+- [ ] Decide whether this extends to `Unit`, which has the same shape
 
 ## Destructuring assignment
 

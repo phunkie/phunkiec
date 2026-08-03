@@ -12,6 +12,6 @@ function firstDefined(ImmList<Option<Int>> $options): Option<Int> {
 <?php
 
 function firstDefined(ImmList $options): Option {
-    assertTypeArguments($options, 'List<Option<Int>>', 'firstDefined', 1, 'options');
-    return $options->find(fn($o) => $o->isDefined());
+    assertTypeArguments($options, ['Option<Int>'], 'firstDefined', 1, 'options');
+    return assertReturnTypeArguments($options->find(fn($o) => $o->isDefined()), ['Int'], 'firstDefined');
 }

@@ -27,6 +27,18 @@ missing, so the day it lands the fixture fails and the marker has to be removed.
 - [x] **The `None` singleton stays** — there is exactly one `None` object, so it
       cannot carry a type argument. The type is static, supplied by the
       signature, never by the value.
+- [x] **The guard compares type arguments, not rendered type names** — via
+      `getTypeVariables()`, which every `Kind` already answers. The constructor
+      is PHP's business; the arguments are ours. Comparing whole names would
+      have broken the first subtype it met: `NonEmptyList` reports itself as
+      `List<Int>`, so a guard looking for `NonEmptyList<Int>` would never match.
+      Arity greater than one falls out for free.
+- [x] **`Nil` is a value, not a type** — like `None`, so there is no `Nil<T>`.
+      An empty list reports `Nothing` for its argument and the rule above
+      accepts it.
+- [x] **`NonEmptyList<Int>`, not `Nel<Int>`** — the class is `NonEmptyList` and
+      `Nel()` is only a factory function, so the full name is what a signature
+      can name. This is what cats does too.
 
 ## Specified
 
@@ -39,6 +51,8 @@ fixtures are `--PENDING--` except where noted.
 - [x] **Nested type arguments** — `ImmList<Option<Int>>` erased whole
 - [x] **Return types** — every `return` guarded, not only the last; the empty
       case falls out of the `Nothing` rule and needs no special handling
+- [x] **Subtypes** — `NonEmptyList<Int>` guards the same argument as
+      `ImmList<Int>` and leaves non-emptiness to PHP's own declaration
 - [x] A parameter with no type argument is left alone — *passes already*
 - [x] A return type with no type argument is left alone — *passes already*
 

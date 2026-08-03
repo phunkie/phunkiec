@@ -12,5 +12,5 @@ function parseAll(array $rows): ImmList<Int> {
 <?php
 
 function parseAll(array $rows): ImmList {
-    return assertReturnTypeArguments(ImmList(...array_map('intval', $rows)), 'List<Int>', 'parseAll');
+    return assertReturnTypeArguments(ImmList(...array_map('intval', $rows)), ['Int'], 'parseAll');
 }

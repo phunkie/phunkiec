@@ -12,6 +12,6 @@ function doubleAll(ImmList<Int> $numbers): ImmList<Int> {
 <?php
 
 function doubleAll(ImmList $numbers): ImmList {
-    assertTypeArguments($numbers, 'List<Int>', 'doubleAll', 1, 'numbers');
-    return assertReturnTypeArguments($numbers->map(fn($n) => $n * 2), 'List<Int>', 'doubleAll');
+    assertTypeArguments($numbers, ['Int'], 'doubleAll', 1, 'numbers');
+    return assertReturnTypeArguments($numbers->map(fn($n) => $n * 2), ['Int'], 'doubleAll');
 }

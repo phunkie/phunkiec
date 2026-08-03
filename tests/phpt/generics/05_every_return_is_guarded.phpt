@@ -16,9 +16,9 @@ function firstTwo(ImmList<Int> $numbers): ImmList<Int> {
 <?php
 
 function firstTwo(ImmList $numbers): ImmList {
-    assertTypeArguments($numbers, 'List<Int>', 'firstTwo', 1, 'numbers');
+    assertTypeArguments($numbers, ['Int'], 'firstTwo', 1, 'numbers');
     if ($numbers->isEmpty()) {
-        return assertReturnTypeArguments(ImmList(), 'List<Int>', 'firstTwo');
+        return assertReturnTypeArguments(ImmList(), ['Int'], 'firstTwo');
     }
-    return assertReturnTypeArguments($numbers->take(2), 'List<Int>', 'firstTwo');
+    return assertReturnTypeArguments($numbers->take(2), ['Int'], 'firstTwo');
 }

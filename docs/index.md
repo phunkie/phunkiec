@@ -18,6 +18,8 @@ macros.
   monadic type.
 - [Pattern matching](pattern-matching.md) — `value match { … }` with
   deconstruction and guards.
+- [Generics](generics.md) — `ImmList<Int>` in signatures, checked at the
+  boundary. Design only, not yet implemented.
 
 ## How it works
 

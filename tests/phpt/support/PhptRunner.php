@@ -18,9 +18,56 @@ use Syn\Core\Configuration;
  *                  rule here overrides a bundled rule of the same shape
  *   --FILE--       the `.phunkie` source to compile
  *   --EXPECT--     the expected compiled PHP (compared trimmed)
+ *   --PENDING--    why this describes a feature that does not exist yet
  */
 final class PhptRunner
 {
+    /**
+     * Finds the fixtures, grouped by the directory they sit in, so the suite
+     * reads by feature rather than as one long list.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function fixtures(string $root): array
+    {
+        $groups = [];
+
+        foreach ((array) glob($root . '/*', GLOB_ONLYDIR) as $directory) {
+            $name = basename((string) $directory);
+
+            if ($name === 'support') {
+                continue;
+            }
+
+            $files = (array) glob($directory . '/*.phpt');
+            sort($files);
+
+            if ($files !== []) {
+                $groups[$name] = $files;
+            }
+        }
+
+        ksort($groups);
+
+        return $groups;
+    }
+
+    /**
+     * Compiles, treating a compile failure as a result rather than an error.
+     *
+     * A pending fixture describes syntax the compiler cannot parse yet, so
+     * failing to compile is the expected outcome and must not abort the run.
+     *
+     * @param array<string, string> $sections
+     */
+    public static function compileOrFailure(array $sections): string
+    {
+        try {
+            return self::compile($sections);
+        } catch (\Throwable $e) {
+            return 'compile failed: ' . $e->getMessage();
+        }
+    }
     /**
      * @return array<string, string> section name (without dashes) => body
      */

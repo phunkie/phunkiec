@@ -106,30 +106,18 @@ so a file only changes where a guard went in.
       stops counting after a `=`, where a `<` is a comparison. No fixture is
       pending now.
 
-- [ ] **A nested argument names a class, and the value reports a type.** This is
-      the last thing between generics and being usable beyond one level:
+- [x] **A nested argument names a class, and the value reports a type.**
+      A signature names `ImmMap` because the class is what PHP enforces, while
+      the value calls itself `Map`. At the top level it never showed, the guard
+      taking the constructor from the value and comparing only the arguments,
+      but one level down the written text is the whole of what is compared, so
+      `ImmList<ImmMap<String, Int>>` promised something no value could report.
 
-      | written | reported |
-      |---|---|
-      | `Option<Int>` | `Option<Int>` |
-      | `ImmMap<String, Int>` | `Map<String, Int>` |
-      | `Option<ImmList<Int>>` | `Option<List<Int>>` |
+      Fixed in phunkie, where `kind` has held the mapping since #41:
+      `asTypeNames` reads what a signature promised in the names values answer
+      in, at any depth, before anything is compared or rendered.
 
-      Only the argument written at the top level is safe, because there the
-      guard reads the constructor off the value and compares nothing but the
-      arguments. One level down the written text is compared verbatim, so
-      `ImmList<ImmMap<String, Int>>` compiles to a guard that can never pass.
-      Fixture 03 hides this by using `Option<Int>`, which is spelled the same
-      either way.
 
-      It belongs in phunkie, where `kind` already holds the mapping since #41:
-      `assertTypeArguments` should normalise what it was promised the same way
-      it renders what it got. Doing it in phunkiec would mean hardcoding three
-      names it would then have to keep in step.
-
-      Note this cannot be pinned by a fixture as they stand: the compiled text
-      would not change, only what happens when it runs. It is an argument for
-      the `--EXPECT_OUTPUT--` section.
 - [ ] **Closures**, which have no name to address a guard to. Their signatures
       are handed back exactly as written, so a closure with a type argument
       still compiles to PHP that will not parse.

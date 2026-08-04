@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Core;
 
+use RuntimeException;
 use Syn\Core\Configuration;
 use Syn\Macro\MacroLoader;
 use Syn\Transformer\Transformer;
-use Symfony\Component\Finder\Finder;
 
 class PhunkieProcessor
 {
@@ -63,10 +63,7 @@ class PhunkieProcessor
                 ? ''
                 : $this->transformer->transform($content, $file);
 
-            $outputDir = dirname($outputPath);
-            if (!is_dir($outputDir)) {
-                mkdir($outputDir, 0755, true);
-            }
+            $this->ensureDirectory(dirname($outputPath));
 
             file_put_contents($outputPath, $transformed);
 
@@ -87,17 +84,37 @@ class PhunkieProcessor
         }
     }
 
+    /**
+     * Looking before creating is safe in a compile that runs once and not in a
+     * watch that runs for hours, where the directory can appear or go between
+     * the look and the write. What mkdir did decides, so a directory somebody
+     * else made in the meantime is success, and one that cannot be made at all
+     * is an error on the file rather than a warning and an empty output.
+     */
+    private function ensureDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            return;
+        }
+
+        if (@mkdir($directory, 0755, true)) {
+            return;
+        }
+
+        clearstatcache(true, $directory);
+
+        if (!is_dir($directory)) {
+            throw new RuntimeException(sprintf('Could not create the output directory "%s".', $directory));
+        }
+    }
+
     private function processDirectory(string $inputDir, string $outputDir): array
     {
-        $finder = new Finder();
-        $finder->files()->name('*.phunkie')->in($inputDir);
+        $outputDirectory = new OutputDirectory($outputDir);
 
         $results = [];
-        foreach ($finder as $file) {
-            $relativePath = $file->getRelativePathname();
-            $outputPath = $outputDir . '/' . preg_replace('/\.phunkie$/', '.php', $relativePath);
-
-            $results[] = $this->processFile($file->getRealPath(), $outputPath);
+        foreach ((new SourceTree($inputDir))->files() as $source) {
+            $results[] = $this->processFile($source->path, $outputDirectory->forSource($source->relativePath));
         }
 
         return $results;

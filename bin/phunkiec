@@ -3,18 +3,34 @@
 
 declare(strict_types=1);
 
-foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
-    if (file_exists($autoload)) {
+// Composer's bin proxy names the autoloader of the project that installed us,
+// and it is asked first because it is the only one that is right in every case.
+// __DIR__ resolves through a symlink, so a path repository installed with
+// symlink: true would otherwise find this package's own vendor and compile
+// against the wrong set of installed packages, which is exactly the set
+// MacroDiscovery reads to find the macros a project ships.
+$candidates = [
+    $GLOBALS['_composer_autoload_path'] ?? null,
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+foreach ($candidates as $autoload) {
+    if ($autoload !== null && file_exists($autoload)) {
         require $autoload;
         break;
     }
 }
 
-use Phunkie\Compiler\Console\CompileCommand;
+use Phunkie\Compiler\Console\Argv;
+use Phunkie\Compiler\Console\PhunkiecCommand;
+use Phunkie\Compiler\Watch\PollingWatcher;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\ArgvInput;
+
+$command = new PhunkiecCommand(new PollingWatcher());
 
 $application = new Application('phunkiec', '0.1.0');
-$command = new CompileCommand();
 $application->add($command);
-$application->setDefaultCommand($command->getName(), true);
-$application->run();
+$application->setDefaultCommand((string) $command->getName(), true);
+$application->run(new ArgvInput((new Argv($_SERVER['argv']))->normalised()));

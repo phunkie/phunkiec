@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Core;
 
+use Phunkie\Compiler\Generics\Erasure;
+use Phunkie\Compiler\Generics\GuardInjector;
 use RuntimeException;
 use Syn\Core\Configuration;
 use Syn\Macro\MacroLoader;
@@ -13,6 +15,9 @@ class PhunkieProcessor
 {
     private Transformer $transformer;
     private MacroLoader $macroLoader;
+    private Erasure $erasure;
+    private GuardInjector $guards;
+    private SyntaxCheck $syntax;
 
     private const MACROS = __DIR__ . '/../../macros';
 
@@ -20,6 +25,9 @@ class PhunkieProcessor
     {
         $this->macroLoader = new MacroLoader();
         $this->transformer = new Transformer($this->macroLoader);
+        $this->erasure = new Erasure();
+        $this->guards = new GuardInjector();
+        $this->syntax = new SyntaxCheck();
 
         // Precedence, highest first, because the first matching rule wins:
         // explicitly supplied macros (--macro-file/--macro-dir), then those
@@ -59,9 +67,27 @@ class PhunkieProcessor
         $lines = substr_count($content, "\n") + 1;
 
         try {
+            // Three passes, in this order because each needs what the one
+            // before it leaves. Erasure has to come first: a type argument is
+            // not PHP, so nothing can parse the file until the brackets are
+            // gone. Guards have to come last: placing one means knowing which
+            // function a `return` sits in, which needs a tree, and the tree has
+            // to be of the code as it will finally be, macros and all.
+            $erased = $this->erasure->erase($content);
+
             $transformed = $content === ''
                 ? ''
-                : $this->transformer->transform($content, $file);
+                : $this->guards->inject(
+                    $this->transformer->transform($erased->code, $file),
+                    $erased->signatures
+                );
+
+            // Before anything is written, because a file that is known not to
+            // parse is worse on disk than absent: a build made of it looks
+            // whole. Leaving the last good output alone is the friendlier
+            // failure, and under a watch it is the only one that lets you keep
+            // working while you fix the source.
+            $this->syntax->assertParses($transformed);
 
             $this->ensureDirectory(dirname($outputPath));
 

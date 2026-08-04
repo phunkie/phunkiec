@@ -43,3 +43,13 @@ then("the file {string} should be created", function (string $path) {
 then("the file {string} should be empty", function (string $path) {
     expect(file_get_contents($this->workspace . '/' . $path))->toBeEmpty();
 });
+
+// Writing PHP that is known not to parse hands back a build that looks whole
+// and is not. The last good output is left where it is instead.
+then("the file {string} should not have been created", function (string $path) {
+    expect(file_exists($this->workspace . '/' . $path))->toBeFalse();
+});
+
+then("the failure should name the line it broke on", function () {
+    expect($this->output)->toMatch('/on line \d+/');
+});

@@ -9,6 +9,25 @@ Feature: Developer can compile a .phunkie file into .php
     When I run it with no arguments
     Then the output should mention "phunkiec [-o|--out OUT]"
 
+  Scenario: PHP that does not parse is an error, however well the macros ran
+    Given a phunkie file containing:
+      """
+      class Todo<F> {
+      }
+      """
+    When I compile it
+    Then the compiler should have failed saying "The compiled PHP does not parse"
+    And the failure should name the line it broke on
+
+  Scenario: PHP that does not parse is not written
+    Given a phunkie file containing:
+      """
+      class Todo<F> {
+      }
+      """
+    When I compile it
+    Then the file "build/Example.php" should not have been created
+
   Scenario: Empty file
     Given there is a file "src/Empty.phunkie" that is empty
     When I compile "src/Empty.phunkie" into "build/Empty.php"

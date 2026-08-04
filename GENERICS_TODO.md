@@ -62,45 +62,107 @@ fixtures are `--PENDING--` except where noted.
 
 ## Implementation
 
-Nothing below is started. This is the whole of the actual work.
+The guards exist. Emitting them does not.
 
-- [ ] Parse `<...>` in a parameter type and erase it
-- [ ] Parse `<...>` in a return type and erase it
-- [ ] Emit the parameter guard at the top of the body
-- [ ] Wrap every `return` expression in the return guard
-- [ ] `assertTypeArguments` / `assertReturnTypeArguments` themselves, including
-      the `Nothing` accepts / `Mixed` refuses rules. Both are named
-      aspirationally in the docs and do not exist. The closest existing thing is
-      `assertSameTypeAsCollectionType()` in phunkie, which compares a value
-      against a collection rather than a collection against a named type.
-- [ ] Decide where the guards live: phunkie, or a runtime shipped with phunkiec
+- [x] **The guards live in phunkie**, in `Functions/assertion.php`. After
+      transpiling, phunkiec is not in the build and phunkie is, so compiled code
+      can only call into phunkie.
+- [x] **`assertTypeArguments` / `assertReturnTypeArguments`**, with the
+      `Nothing` accepts and `Mixed` refuses rules. They are global, like
+      `pmatch`, because compiled code calls them unqualified from whatever
+      namespace the source was written in. They throw `TypeError` rather than
+      returning a `Validation`, which is what `assertSameTypeAsCollectionType`
+      beside them does, because compiled code calls the first as a statement and
+      wraps a `return` in the second, and neither position would read a result.
+      Verified to produce the errors in the docs word for word.
+- [x] Parse `<...>` in a parameter type and erase it
+- [x] Parse `<...>` in a return type and erase it
+- [x] Emit the parameter guard at the top of the body
+- [x] Wrap every `return` expression in the return guard
 
-## Blocked on phunkie
+Seven of the eight fixtures pass. Verified end to end as well: a compiled source
+run against phunkie raises the errors in the docs, on 8.2 through 8.5.
 
-- [ ] **`None` reports arity 0, the empty list reports arity 1.** Both are empty
-      containers, but they answer differently:
+### How it works
+
+Three passes, in `PhunkieProcessor::processFile`. Erasure comes first because a
+type argument is not PHP and nothing can parse the file until the brackets are
+gone, which also makes it the only pass that can read them: what they said is
+carried on in `Signatures`. Macros run next. Guards go in last, on a tree, and
+they have to: placing one means knowing which function a `return` sits in, and
+the tree has to be of the code as it will finally be, macros and all.
+
+`GuardVisitor` keeps the enclosing function on a stack, so a `return` inside a
+nested closure is left alone without a rule saying so, the closure having
+pushed nothing to guard against. The printing preserves the original formatting,
+so a file only changes where a guard went in.
+
+## Still to do
+
+- [x] **Nested arguments**, fixture 03. `T_SR` is split back into the two
+      brackets it stands for, but only inside a group, so `$bits = 8 >> 2` is
+      still a shift. Splitting a parameter list counts angle brackets too, since
+      the comma in `ImmList<ImmMap<String, Int>> $rows` belongs to the map, and
+      stops counting after a `=`, where a `<` is a comparison. No fixture is
+      pending now.
+
+- [ ] **A nested argument names a class, and the value reports a type.** This is
+      the last thing between generics and being usable beyond one level:
+
+      | written | reported |
+      |---|---|
+      | `Option<Int>` | `Option<Int>` |
+      | `ImmMap<String, Int>` | `Map<String, Int>` |
+      | `Option<ImmList<Int>>` | `Option<List<Int>>` |
+
+      Only the argument written at the top level is safe, because there the
+      guard reads the constructor off the value and compares nothing but the
+      arguments. One level down the written text is compared verbatim, so
+      `ImmList<ImmMap<String, Int>>` compiles to a guard that can never pass.
+      Fixture 03 hides this by using `Option<Int>`, which is spelled the same
+      either way.
+
+      It belongs in phunkie, where `kind` already holds the mapping since #41:
+      `assertTypeArguments` should normalise what it was promised the same way
+      it renders what it got. Doing it in phunkiec would mean hardcoding three
+      names it would then have to keep in step.
+
+      Note this cannot be pinned by a fixture as they stand: the compiled text
+      would not change, only what happens when it runs. It is an argument for
+      the `--EXPECT_OUTPUT--` section.
+- [ ] **Closures**, which have no name to address a guard to. Their signatures
+      are handed back exactly as written, so a closure with a type argument
+      still compiles to PHP that will not parse.
+- [x] **A syntax check on the output.** Both entries above used to present
+      themselves as `Compiled 1 file(s) successfully` and a file `php -l`
+      rejects. `SyntaxCheck` now reads the compiled PHP with PHP's own parser
+      before anything is written, so they are reported with a line number and
+      the last good output is left where it is.
+- [ ] **Functions of the same name** in one file, in different classes, share a
+      `Signatures` entry. Keyed by name today.
+
+## Settled, previously blocked on phunkie
+
+- [x] **`None` reports arity 0, the empty list reports arity 1.**
 
       ```php
       ImmList()->getTypeArity();      // 1, vars ["Nothing"]
       None()->getTypeArity();         // 0, vars []
       ```
 
-      `Option::getTypeArity()` is `$this->isEmpty() ? 0 : 1`, while `ImmList` is
-      always 1. Arity belongs to the type constructor, not the value: `Option`
-      takes one argument whether or not it holds anything, exactly as an empty
-      list is still a list of something. `ImmList` is the one that has it right.
-
-      Until this is fixed the guard needs a special case for arity 0, which
-      means the same thing as the `Nothing` rule and would be a second way of
-      saying it. Fixing it in phunkie means `None` needs no special handling at
-      all. `showType()` should still answer `"None"`, which is right, and is a
-      separate question from what the arity is.
+      `Option::getTypeArity()` is `$this->isEmpty() ? 0 : 1` and stays that way.
+      The guard takes both as the same thing: a container reporting no arguments
+      has committed to nothing, exactly as one reporting `Nothing` has. That is
+      one branch in `typeArgumentsSatisfy`, not a rule anybody writing phunkie
+      has to know about.
 
 ## Next to specify
 
 - [ ] **Two type parameters** — `ImmMap<String, User>`, so arity > 1 is
-      exercised before anything harder. Note phunkie#41: `ImmMap` currently
-      reports its type as `ImmMap<...>` while rendering its value as `Map(...)`.
+      exercised before anything harder. phunkie#41 is fixed, so a map now reports
+      `Map<String, User>` and the guard says the same. As with `ImmList<Int>`
+      reading back as `List<Int>`, the signature names the class and the message
+      names the type, which is the constructor staying PHP's business.
 
 ## Later
 

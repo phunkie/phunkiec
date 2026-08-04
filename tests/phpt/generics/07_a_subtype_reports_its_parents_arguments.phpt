@@ -1,7 +1,5 @@
 --TEST--
 A NonEmptyList parameter guards its arguments and leaves the constructor to PHP
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 

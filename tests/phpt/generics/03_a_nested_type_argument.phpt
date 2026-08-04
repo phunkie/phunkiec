@@ -1,7 +1,5 @@
 --TEST--
 A nested type argument is erased whole
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 

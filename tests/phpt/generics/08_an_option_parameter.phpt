@@ -1,7 +1,5 @@
 --TEST--
 An Option parameter and return guard their argument
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 

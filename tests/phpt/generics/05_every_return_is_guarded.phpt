@@ -1,7 +1,5 @@
 --TEST--
 Every return in the body is guarded, not only the last
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 
@@ -20,5 +18,6 @@ function firstTwo(ImmList $numbers): ImmList {
     if ($numbers->isEmpty()) {
         return assertReturnTypeArguments(ImmList(), ['Int'], 'firstTwo');
     }
+
     return assertReturnTypeArguments($numbers->take(2), ['Int'], 'firstTwo');
 }

@@ -9,26 +9,24 @@ use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Array_;
-use PhpParser\Node\Expr\Closure;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\Int_;
 use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Expression;
-use PhpParser\Node\Stmt\Function_;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeVisitorAbstract;
 
 /**
  * Puts a guard where a type argument used to be.
  *
- * Guards need to know which function a `return` belongs to, which is the whole
- * reason this is a tree and not another pass over tokens: a rule matching
+ * Guards need to know which declaration a `return` belongs to, which is the
+ * whole reason this is a tree and not another pass over tokens: a rule matching
  * `return` by shape would also wrap the one inside a nested closure. Here the
- * enclosing function is on a stack, and a closure pushes nothing to guard
- * against, so a `return` inside one is left alone without a rule saying so.
+ * enclosing declaration is on a stack, and one that promised nothing puts
+ * nothing on it, so a `return` inside it is left alone without a rule saying so.
  */
 final class GuardVisitor extends NodeVisitorAbstract
 {
@@ -38,20 +36,14 @@ final class GuardVisitor extends NodeVisitorAbstract
     private array $enclosing = [];
 
     public function __construct(
-        private readonly Signatures $signatures,
+        private readonly Marker $marker,
     ) {
     }
 
     public function enterNode(Node $node): ?Node
     {
-        if ($node instanceof Function_ || $node instanceof ClassMethod) {
-            $this->enclosing[] = $this->signatures->forFunction($node->name->toString());
-
-            return null;
-        }
-
-        if ($node instanceof Closure || $node instanceof ArrowFunction) {
-            $this->enclosing[] = null;
+        if ($node instanceof FunctionLike) {
+            $this->enclosing[] = $this->marker->readFrom($node);
         }
 
         return null;
@@ -59,27 +51,36 @@ final class GuardVisitor extends NodeVisitorAbstract
 
     public function leaveNode(Node $node): ?Node
     {
-        if ($node instanceof Closure || $node instanceof ArrowFunction) {
-            array_pop($this->enclosing);
-
-            return null;
-        }
-
         if ($node instanceof Return_) {
             return $this->guardReturn($node);
         }
 
-        if (!($node instanceof Function_ || $node instanceof ClassMethod)) {
+        if (!$node instanceof FunctionLike) {
             return null;
         }
 
         $signature = array_pop($this->enclosing);
 
-        if ($signature === null || $node->stmts === null) {
+        if ($signature === null) {
             return null;
         }
 
-        $node->stmts = array_merge($this->guardParameters($signature), $node->stmts);
+        // An arrow function is a single expression, with nowhere to put a
+        // statement. Its expression is what it returns, so it is wrapped in
+        // place, and its parameters are left to the declaration it was passed
+        // to. A declaration without a body, on an interface or an abstract
+        // method, has nothing to guard: whatever implements it does.
+        if ($node instanceof ArrowFunction) {
+            $node->expr = $this->guardValue($node->expr, $signature);
+
+            return $node;
+        }
+
+        if ($node->getStmts() === null) {
+            return $node;
+        }
+
+        $node->stmts = array_merge($this->guardParameters($signature), $node->getStmts());
 
         return $node;
     }
@@ -88,17 +89,26 @@ final class GuardVisitor extends NodeVisitorAbstract
     {
         $signature = end($this->enclosing);
 
-        if (!$signature instanceof Signature || $signature->returnArguments === [] || $node->expr === null) {
+        if (!$signature instanceof Signature || $node->expr === null) {
             return null;
         }
 
-        $node->expr = new FuncCall(new Name('assertReturnTypeArguments'), [
-            new Arg($node->expr),
+        $node->expr = $this->guardValue($node->expr, $signature);
+
+        return $node;
+    }
+
+    private function guardValue(Node\Expr $value, Signature $signature): Node\Expr
+    {
+        if ($signature->returnArguments === []) {
+            return $value;
+        }
+
+        return new FuncCall(new Name('assertReturnTypeArguments'), [
+            new Arg($value),
             new Arg($this->arguments($signature->returnArguments)),
             new Arg(new String_($signature->function)),
         ]);
-
-        return $node;
     }
 
     /**
@@ -109,16 +119,21 @@ final class GuardVisitor extends NodeVisitorAbstract
         $guards = [];
 
         foreach ($signature->parameters as $parameter) {
-            $guards[] = new Expression(new FuncCall(new Name('assertTypeArguments'), [
-                new Arg(new Variable($parameter->name)),
-                new Arg($this->arguments($parameter->arguments)),
-                new Arg(new String_($signature->function)),
-                new Arg(new Int_($parameter->position)),
-                new Arg(new String_($parameter->name)),
-            ]));
+            $guards[] = new Expression($this->argumentsGuard($signature, $parameter));
         }
 
         return $guards;
+    }
+
+    private function argumentsGuard(Signature $signature, Parameter $parameter): FuncCall
+    {
+        return new FuncCall(new Name('assertTypeArguments'), [
+            new Arg(new Variable($parameter->name)),
+            new Arg($this->arguments($parameter->arguments)),
+            new Arg(new String_($signature->function)),
+            new Arg(new Int_($parameter->position)),
+            new Arg(new String_($parameter->name)),
+        ]);
     }
 
     /**

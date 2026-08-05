@@ -20,9 +20,12 @@ use Throwable;
  */
 final class GuardInjector
 {
-    public function inject(string $code, Signatures $signatures): string
+    public function inject(string $code): string
     {
-        if ($signatures->isEmpty()) {
+        $marker = new Marker();
+
+        // Nothing was promised, so there is nothing to parse for.
+        if (!$marker->isPresentIn($code)) {
             return $code;
         }
 
@@ -43,8 +46,10 @@ final class GuardInjector
         }
 
         $guarded = (new NodeTraverser(new CloningVisitor()))->traverse($original);
-        $guarded = (new NodeTraverser(new GuardVisitor($signatures)))->traverse($guarded);
+        $guarded = (new NodeTraverser(new GuardVisitor($marker)))->traverse($guarded);
 
-        return (new Standard())->printFormatPreserving($guarded, $original, $parser->getTokens());
+        $printed = (new Standard())->printFormatPreserving($guarded, $original, $parser->getTokens());
+
+        return $marker->stripFrom($printed);
     }
 }

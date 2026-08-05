@@ -24,35 +24,179 @@ use PhpToken;
  */
 final class Erasure
 {
-    public function erase(string $source): ErasedSource
+    private Marker $marker;
+
+    public function __construct()
+    {
+        $this->marker = new Marker();
+    }
+
+    public function erase(string $source): string
     {
         if (!str_contains($source, '<')) {
-            return new ErasedSource($source, new Signatures([]));
+            return $source;
         }
 
         $tokens = PhpToken::tokenize($source);
         $count = count($tokens);
         $emitted = [];
-        $signatures = [];
+        $classes = [];
+        $depth = 0;
         $position = 0;
 
         while ($position < $count) {
-            if (!$tokens[$position]->is(T_FUNCTION)) {
-                $emitted[] = $tokens[$position];
+            $token = $tokens[$position];
+
+            if ($token->text === '{') {
+                $depth++;
+            }
+
+            if ($token->text === '}') {
+                $depth--;
+
+                while ($classes !== [] && end($classes)['depth'] >= $depth) {
+                    array_pop($classes);
+                }
+            }
+
+            if ($this->opensAClass($tokens, $position)) {
+                $name = $this->nameAfter($tokens, $position);
+
+                if ($name !== null) {
+                    $classes[] = ['name' => $name, 'depth' => $depth];
+                }
+            }
+
+            if (!$token->is(T_FUNCTION)) {
+                $emitted[] = $token;
                 $position++;
 
                 continue;
             }
 
-            [$signatureTokens, $signature, $position] = $this->eraseSignature($tokens, $position);
-            $emitted = array_merge($emitted, $signatureTokens);
+            $enclosing = $classes === [] ? null : end($classes);
+
+            [$signatureTokens, $signature, $position] = $this->eraseSignature($tokens, $position, $enclosing);
 
             if ($signature !== null && !$signature->isEmpty()) {
-                $signatures[$signature->function] = $signature;
+                $emitted = $this->mark($emitted, $signature);
             }
+
+            $emitted = array_merge($emitted, $signatureTokens);
         }
 
-        return new ErasedSource($this->render($emitted), new Signatures($signatures));
+        return $this->render($emitted);
+    }
+
+    /**
+     * Puts the marker in front of the declaration.
+     *
+     * An attribute goes before the modifiers, not after, so `public function`
+     * has to be stepped back over to reach the place PHP will accept it.
+     *
+     * @param list<PhpToken> $emitted
+     *
+     * @return list<PhpToken>
+     */
+    private function mark(array $emitted, Signature $signature): array
+    {
+        return $this->insertMarker($emitted, $this->marker->write(
+            $signature->function,
+            $signature->parameters,
+            $signature->returnArguments
+        ));
+    }
+
+    /**
+     * @param list<PhpToken> $emitted
+     *
+     * @return list<PhpToken>
+     */
+    private function insertMarker(array $emitted, string $text): array
+    {
+        $at = count($emitted);
+
+        while (($before = $this->modifierBefore($emitted, $at)) !== null) {
+            $at = $before;
+        }
+
+        array_splice($emitted, $at, 0, [
+            new PhpToken(T_ATTRIBUTE, $text),
+            new PhpToken(T_WHITESPACE, ' '),
+        ]);
+
+        return $emitted;
+    }
+
+    /**
+     * Where a modifier sitting just before this point begins, if one does.
+     *
+     * Only modifiers are stepped over. Anything else means the declaration
+     * starts here: a closure is preceded by whatever it is being assigned to,
+     * and moving in front of that would take the marker with it.
+     *
+     * @param list<PhpToken> $emitted
+     */
+    private function modifierBefore(array $emitted, int $at): ?int
+    {
+        while ($at > 0 && $emitted[$at - 1]->is(T_WHITESPACE) && !str_contains($emitted[$at - 1]->text, "\n")) {
+            $at--;
+        }
+
+        if ($at === 0 || !$this->isModifier($emitted[$at - 1])) {
+            return null;
+        }
+
+        return $at - 1;
+    }
+
+    private function isModifier(PhpToken $token): bool
+    {
+        return $token->is(T_PUBLIC)
+            || $token->is(T_PROTECTED)
+            || $token->is(T_PRIVATE)
+            || $token->is(T_STATIC)
+            || $token->is(T_FINAL)
+            || $token->is(T_ABSTRACT)
+            || $token->is(T_READONLY);
+    }
+
+    /**
+     * Whether a class body starts here, as opposed to `Foo::class` being read.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function opensAClass(array $tokens, int $position): bool
+    {
+        if (!$tokens[$position]->is(T_CLASS) && !$tokens[$position]->is(T_TRAIT) && !$tokens[$position]->is(T_INTERFACE) && !$tokens[$position]->is(T_ENUM)) {
+            return false;
+        }
+
+        $previous = $position - 1;
+
+        while ($previous >= 0 && $tokens[$previous]->is(T_WHITESPACE)) {
+            $previous--;
+        }
+
+        return $previous < 0 || !$tokens[$previous]->is(T_DOUBLE_COLON);
+    }
+
+    /**
+     * The name a declaration was given, or null where it has none: an anonymous
+     * class has nothing a guard could be addressed to.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function nameAfter(array $tokens, int $position): ?string
+    {
+        $count = count($tokens);
+        $position++;
+
+        while ($position < $count && $tokens[$position]->is(T_WHITESPACE)) {
+            $position++;
+        }
+
+        return $position < $count && $tokens[$position]->is(T_STRING) ? $tokens[$position]->text : null;
     }
 
     /**
@@ -60,21 +204,21 @@ final class Erasure
      *
      * @return array{list<PhpToken>, Signature|null, int}
      */
-    private function eraseSignature(array $tokens, int $start): array
+    private function eraseSignature(array $tokens, int $start, ?array $enclosing): array
     {
         $count = count($tokens);
         $emitted = [$tokens[$start]];
         $position = $this->skip($tokens, $start + 1, $emitted, ['&']);
 
-        // A closure has no name, so there is nowhere to address a guard and
-        // nothing to record. Its signature is handed back as it was written.
-        if ($position >= $count || !$tokens[$position]->is(T_STRING)) {
-            return [$emitted, null, $position];
-        }
+        // A closure has no name. It is guarded all the same, because what it
+        // promised travels on the declaration rather than under a name.
+        $function = null;
 
-        $function = $tokens[$position]->text;
-        $emitted[] = $tokens[$position];
-        $position = $this->skip($tokens, $position + 1, $emitted, []);
+        if ($position < $count && $tokens[$position]->is(T_STRING)) {
+            $function = $tokens[$position]->text;
+            $emitted[] = $tokens[$position];
+            $position = $this->skip($tokens, $position + 1, $emitted, []);
+        }
 
         if ($position >= $count || $tokens[$position]->text !== '(') {
             return [$emitted, null, $position];
@@ -97,7 +241,13 @@ final class Erasure
         [$returnTokens, $returnArguments, $position] = $this->eraseReturnType($tokens, $position);
         $emitted = array_merge($emitted, $returnTokens);
 
-        return [$emitted, new Signature($function, $parameters, $returnArguments), $position];
+        $signature = new Signature(
+            $this->marker->nameFor($enclosing['name'] ?? null, $function),
+            $parameters,
+            $returnArguments
+        );
+
+        return [$emitted, $signature, $position];
     }
 
     /**

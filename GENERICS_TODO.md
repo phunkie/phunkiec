@@ -118,16 +118,20 @@ so a file only changes where a guard went in.
       in, at any depth, before anything is compared or rendered.
 
 
-- [ ] **Closures**, which have no name to address a guard to. Their signatures
-      are handed back exactly as written, so a closure with a type argument
-      still compiles to PHP that will not parse.
+- [x] **Closures** are guarded like anything else. What a signature promised
+      now travels on the declaration itself, as an attribute erasure writes and
+      the guard pass reads, so nothing is looked up by name and a closure needs
+      no name. `Signatures` is gone with it.
 - [x] **A syntax check on the output.** Both entries above used to present
       themselves as `Compiled 1 file(s) successfully` and a file `php -l`
       rejects. `SyntaxCheck` now reads the compiled PHP with PHP's own parser
       before anything is written, so they are reported with a line number and
       the last good output is left where it is.
-- [ ] **Functions of the same name** in one file, in different classes, share a
-      `Signatures` entry. Keyed by name today.
+- [x] **Functions of the same name** in one file no longer share a
+      `Signatures` entry. A method is recorded under `Class::method`, which is
+      also how PHP names one in a `TypeError`, so the guard and the message
+      agree. Two classes in one file that each have an `all()` keep their own
+      type arguments.
 
 ## Settled, previously blocked on phunkie
 

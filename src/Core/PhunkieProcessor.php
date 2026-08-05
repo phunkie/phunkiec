@@ -73,13 +73,10 @@ class PhunkieProcessor
             // gone. Guards have to come last: placing one means knowing which
             // function a `return` sits in, which needs a tree, and the tree has
             // to be of the code as it will finally be, macros and all.
-            $erased = $this->erasure->erase($content);
-
             $transformed = $content === ''
                 ? ''
                 : $this->guards->inject(
-                    $this->transformer->transform($erased->code, $file),
-                    $erased->signatures
+                    $this->transformer->transform($this->erasure->erase($content), $file)
                 );
 
             // Before anything is written, because a file that is known not to

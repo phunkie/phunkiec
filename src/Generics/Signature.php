@@ -18,6 +18,7 @@ final class Signature
         public readonly string $function,
         public readonly array $parameters,
         public readonly array $returnArguments,
+        public readonly bool $owned = false,
     ) {
     }
 
@@ -28,5 +29,15 @@ final class Signature
     public function isEmpty(): bool
     {
         return $this->parameters === [] && $this->returnArguments === [];
+    }
+
+    /**
+     * Whether the guards need the object they were called on, which they do
+     * wherever a type variable is mentioned: what it stands for is that
+     * object's business.
+     */
+    public function needsOwner(): bool
+    {
+        return $this->owned;
     }
 }

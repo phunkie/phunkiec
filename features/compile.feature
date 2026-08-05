@@ -9,11 +9,14 @@ Feature: Developer can compile a .phunkie file into .php
     When I run it with no arguments
     Then the output should mention "phunkiec [-o|--out OUT]"
 
+  # The compiler has no grammar of its own, so anything it does not recognise is
+  # passed through untouched. That is right for ordinary PHP and wrong for a
+  # phunkie notation it has yet to learn, and the two are indistinguishable here.
+  # Reading the output back with PHP's own parser is what tells them apart.
   Scenario: PHP that does not parse is an error, however well the macros ran
     Given a phunkie file containing:
       """
-      class Todo<F> {
-      }
+      $todo = ;
       """
     When I compile it
     Then the compiler should have failed saying "The compiled PHP does not parse"
@@ -22,8 +25,7 @@ Feature: Developer can compile a .phunkie file into .php
   Scenario: PHP that does not parse is not written
     Given a phunkie file containing:
       """
-      class Todo<F> {
-      }
+      $todo = ;
       """
     When I compile it
     Then the file "build/Example.php" should not have been created

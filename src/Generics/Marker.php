@@ -29,6 +29,7 @@ use PhpParser\Node\Scalar\String_;
 final class Marker
 {
     public const NAME = '__PhunkieGenerics';
+    public const TYPE = '__PhunkieGenericType';
 
     /**
      * Written as one JSON string rather than as attribute arguments, because
@@ -37,7 +38,7 @@ final class Marker
      * @param list<Parameter> $parameters
      * @param list<string> $returnArguments
      */
-    public function write(string $function, array $parameters, array $returnArguments): string
+    public function write(string $function, array $parameters, array $returnArguments, bool $owned): string
     {
         $promised = [
             'f' => $function,
@@ -46,13 +47,47 @@ final class Marker
                     $parameter->position,
                     $parameter->name,
                     $parameter->arguments,
+                    $parameter->variable,
                 ],
                 $parameters
             ),
             'r' => $returnArguments,
+            'o' => $owned,
         ];
 
         return sprintf("#[%s('%s')]", self::NAME, json_encode($promised));
+    }
+
+    /**
+     * How many type parameters a class declared. A class says how many it takes;
+     * what they are is read from the value.
+     */
+    public function writeType(array $parameters): string
+    {
+        return sprintf("#[%s('%s')]", self::TYPE, json_encode($parameters));
+    }
+
+    public function readTypeFrom(Node $node): ?array
+    {
+        foreach ($node->attrGroups as $group) {
+            foreach ($group->attrs as $attribute) {
+                if ($attribute->name->toString() !== self::TYPE) {
+                    continue;
+                }
+
+                $argument = $attribute->args[0] ?? null;
+
+                if (!$argument instanceof Arg || !$argument->value instanceof String_) {
+                    return null;
+                }
+
+                $parameters = json_decode($argument->value->value, true);
+
+                return is_array($parameters) ? $parameters : null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -60,7 +95,7 @@ final class Marker
      */
     public function isPresentIn(string $code): bool
     {
-        return str_contains($code, self::NAME);
+        return str_contains($code, self::NAME) || str_contains($code, self::TYPE);
     }
 
     public function readFrom(Node $node): ?Signature
@@ -93,7 +128,9 @@ final class Marker
      */
     public function stripFrom(string $code): string
     {
-        return (string) preg_replace('/#\[' . self::NAME . "\\('[^']*'\\)\\] ?/", '', $code);
+        $code = (string) preg_replace('/#\[' . self::NAME . "\\('[^']*'\\)\\] ?/", '', $code);
+
+        return (string) preg_replace('/#\[' . self::TYPE . "\\('[^']*'\\)\\] ?/", '', $code);
     }
 
     private function decode(Attribute $attribute): ?Signature
@@ -111,11 +148,11 @@ final class Marker
         }
 
         $parameters = array_map(
-            static fn (array $parameter): Parameter => new Parameter($parameter[0], $parameter[1], $parameter[2]),
+            static fn (array $parameter): Parameter => new Parameter($parameter[0], $parameter[1], $parameter[2], $parameter[3]),
             $promised['p']
         );
 
-        return new Signature($promised['f'], $parameters, $promised['r']);
+        return new Signature($promised['f'], $parameters, $promised['r'], $promised['o']);
     }
 
     /**

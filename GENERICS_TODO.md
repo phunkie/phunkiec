@@ -158,10 +158,20 @@ so a file only changes where a guard went in.
 
 ## Later
 
-- [ ] **User-defined generic classes** — `class Stack<T>`. Deliberately last:
-      `ImmList<Int>` works because the type argument is recoverable from the
-      value, and a user's `Stack<T>` has nothing to inspect. Needs declaration
-      syntax, type parameter scoping and variance all at once.
+- [x] **User-defined generic types** work already, and always did. A class that
+      implements `Kind` answers what it is holding, which is the only thing the
+      guard ever asks, so `Stack<Int>` in a signature guards, errors and renders
+      exactly as `ImmList<Int>` does. Documented in the manual.
+
+      A method may use the parameters its class declared: `push(T $item)` and
+      `all(): ImmList<T>` both work, resolved against the object the method was
+      called on. An object that has committed to nothing accepts anything.
+
+      The declaration syntax `class Stack<T>` works too. It says how many
+      arguments the type takes, which is the one thing that cannot be read from
+      a value; what they are is read from the value. The parameters are erased
+      and the class is given `getTypeArity` and `getTypeVariables`, unless it
+      declares them itself.
 - [ ] **Generic functions** — `function first<A>(ImmList<A> $xs): Option<A>`,
       where the type variable is bound by the signature rather than supplied.
 - [ ] **Higher-kinded types** — `Functor<F>`. Parked; see the `Kind` interface

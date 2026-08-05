@@ -64,6 +64,21 @@ final class Erasure
 
                 if ($name !== null) {
                     $classes[] = ['name' => $name, 'depth' => $depth];
+
+                    // A class says it is generic by naming its parameters, and
+                    // that is all it has to say: how many it takes. What they
+                    // are is read from the value, which is why the parameters
+                    // themselves are erased and only the count is kept.
+                    [$declaration, $parameters, $position] = $this->eraseParameterList($tokens, $position);
+                    $classes[count($classes) - 1]['parameters'] = $parameters;
+
+                    if ($parameters !== []) {
+                        $emitted = $this->insertMarker($emitted, $this->marker->writeType($parameters));
+                    }
+
+                    $emitted = array_merge($emitted, $declaration);
+
+                    continue;
                 }
             }
 
@@ -103,7 +118,8 @@ final class Erasure
         return $this->insertMarker($emitted, $this->marker->write(
             $signature->function,
             $signature->parameters,
-            $signature->returnArguments
+            $signature->returnArguments,
+            $signature->needsOwner()
         ));
     }
 
@@ -159,6 +175,38 @@ final class Erasure
             || $token->is(T_FINAL)
             || $token->is(T_ABSTRACT)
             || $token->is(T_READONLY);
+    }
+
+    /**
+     * Emits `class Stack` for `class Stack<T>`, and hands back where the
+     * declaration got to.
+     *
+     * @param list<PhpToken> $tokens
+     *
+     * @return array{list<PhpToken>, int}
+     */
+    private function eraseParameterList(array $tokens, int $position): array
+    {
+        $body = $this->startOfBody($tokens, $position);
+        [$erased, $parameters] = $this->eraseArguments(array_slice($tokens, $position, $body - $position));
+
+        return [$erased, $parameters, $body];
+    }
+
+    /**
+     * Where a declaration stops and its body begins.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function startOfBody(array $tokens, int $position): int
+    {
+        $count = count($tokens);
+
+        while ($position < $count && $tokens[$position]->text !== '{') {
+            $position++;
+        }
+
+        return $position;
     }
 
     /**
@@ -230,21 +278,25 @@ final class Erasure
             return [$emitted, null, $position];
         }
 
+        $variables = $enclosing['parameters'] ?? [];
+
         [$parameterTokens, $parameters] = $this->eraseParameters(
-            array_slice($tokens, $position + 1, $close - $position - 1)
+            array_slice($tokens, $position + 1, $close - $position - 1),
+            $variables
         );
 
         $emitted[] = $tokens[$position];
         $emitted = array_merge($emitted, $parameterTokens, [$tokens[$close]]);
         $position = $close + 1;
 
-        [$returnTokens, $returnArguments, $position] = $this->eraseReturnType($tokens, $position);
+        [$returnTokens, $returnArguments, $position] = $this->eraseReturnType($tokens, $position, $variables);
         $emitted = array_merge($emitted, $returnTokens);
 
         $signature = new Signature(
             $this->marker->nameFor($enclosing['name'] ?? null, $function),
             $parameters,
-            $returnArguments
+            $returnArguments,
+            $this->mentions($parameters, $returnArguments, $variables)
         );
 
         return [$emitted, $signature, $position];
@@ -255,7 +307,7 @@ final class Erasure
      *
      * @return array{list<PhpToken>, list<Parameter>}
      */
-    private function eraseParameters(array $tokens): array
+    private function eraseParameters(array $tokens, array $variables = []): array
     {
         $emitted = [];
         $parameters = [];
@@ -267,6 +319,7 @@ final class Erasure
             }
 
             [$chunk, $arguments] = $this->eraseArguments($chunk);
+            [$chunk, $stands] = $this->eraseTypeVariable($chunk, $variables);
             $emitted = array_merge($emitted, $chunk);
             $name = $this->variableIn($chunk);
 
@@ -276,8 +329,8 @@ final class Erasure
 
             $position++;
 
-            if ($arguments !== []) {
-                $parameters[] = new Parameter($position, $name, $arguments);
+            if ($arguments !== [] || $stands !== null) {
+                $parameters[] = new Parameter($position, $name, $arguments, $stands);
             }
         }
 
@@ -289,7 +342,7 @@ final class Erasure
      *
      * @return array{list<PhpToken>, list<string>, int}
      */
-    private function eraseReturnType(array $tokens, int $start): array
+    private function eraseReturnType(array $tokens, int $start, array $variables = []): array
     {
         $count = count($tokens);
         $position = $start;
@@ -305,7 +358,11 @@ final class Erasure
         $end = $this->endOfReturnType($tokens, $position);
         [$region, $arguments] = $this->eraseArguments(array_slice($tokens, $start, $end - $start));
 
-        return [$region, $arguments, $end];
+        // A return type that is itself a type variable has no class behind it,
+        // so the declaration goes entirely and only the promise is kept.
+        [$region, $stands] = $this->eraseReturnVariable($region, $variables);
+
+        return [$region, $stands === null ? $arguments : [$stands], $end];
     }
 
     /**
@@ -532,6 +589,98 @@ final class Erasure
         }
 
         return $chunks;
+    }
+
+    /**
+     * Removes a parameter's type declaration where it is a type variable.
+     *
+     * `T $item` has no class behind it, so PHP has nothing to enforce and the
+     * declaration goes. What T stands for is settled when the code runs, from
+     * the object the method was called on.
+     *
+     * @param list<PhpToken> $tokens
+     * @param list<string> $variables
+     *
+     * @return array{list<PhpToken>, string|null}
+     */
+    private function eraseTypeVariable(array $tokens, array $variables): array
+    {
+        foreach ($tokens as $at => $token) {
+            if (!$token->is(T_STRING) || !in_array($token->text, $variables, true)) {
+                continue;
+            }
+
+            $after = $at + 1;
+
+            while ($after < count($tokens) && $tokens[$after]->is(T_WHITESPACE)) {
+                $after++;
+            }
+
+            if ($after >= count($tokens) || !$tokens[$after]->is(T_VARIABLE)) {
+                continue;
+            }
+
+            // The space that separated the declaration from the variable goes
+            // with it, or the parameter is left with a gap in front of it.
+            $resume = $at + 1;
+
+            while ($resume < count($tokens) && $tokens[$resume]->is(T_WHITESPACE)) {
+                $resume++;
+            }
+
+            return [array_merge(array_slice($tokens, 0, $at), array_slice($tokens, $resume)), $token->text];
+        }
+
+        return [$tokens, null];
+    }
+
+    /**
+     * The same for a return type, where the variable follows the colon.
+     *
+     * @param list<PhpToken> $tokens
+     * @param list<string> $variables
+     *
+     * @return array{list<PhpToken>, string|null}
+     */
+    private function eraseReturnVariable(array $tokens, array $variables): array
+    {
+        foreach ($tokens as $at => $token) {
+            if ($token->is(T_STRING) && in_array($token->text, $variables, true)) {
+                return [array_slice($tokens, 0, $this->lastBefore($tokens, $at)), $token->text];
+            }
+        }
+
+        return [$tokens, null];
+    }
+
+    /**
+     * @param list<PhpToken> $tokens
+     */
+    private function lastBefore(array $tokens, int $at): int
+    {
+        while ($at > 0 && ($tokens[$at - 1]->is(T_WHITESPACE) || $tokens[$at - 1]->text === ':')) {
+            $at--;
+        }
+
+        return $at;
+    }
+
+    /**
+     * Whether anything in the signature named one of the class's parameters.
+     *
+     * @param list<Parameter> $parameters
+     * @param list<string> $returnArguments
+     * @param list<string> $variables
+     */
+    private function mentions(array $parameters, array $returnArguments, array $variables): bool
+    {
+        foreach ($parameters as $parameter) {
+            if ($parameter->variable !== null || array_intersect($parameter->arguments, $variables) !== []) {
+                return true;
+            }
+        }
+
+        return array_intersect($returnArguments, $variables) !== [];
     }
 
     /**

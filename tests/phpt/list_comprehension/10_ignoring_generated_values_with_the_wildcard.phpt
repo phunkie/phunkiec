@@ -7,4 +7,6 @@ for {
     _ <- IO\printLn("You have successfully written to file")
 } yield ();
 --EXPECT--
-<?php IO\readline()->flatMap(function ($line) { return IO\write($line, '/tmp/some_file.txt')->flatMap(function ($_) use ($line) { return IO\printLn("You have successfully written to file")->map(function ($_) use ($line) { return Unit(); }); }); });
+<?php
+
+IO\readline()->flatMap(function ($line) { return IO\write($line, '/tmp/some_file.txt')->flatMap(function ($_) use ($line) { return IO\printLn("You have successfully written to file")->map(function ($_) use ($line) { return Unit(); }); }); });

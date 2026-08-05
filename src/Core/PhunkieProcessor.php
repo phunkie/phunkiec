@@ -18,6 +18,7 @@ class PhunkieProcessor
     private Erasure $erasure;
     private GuardInjector $guards;
     private SyntaxCheck $syntax;
+    private OpeningTag $openingTag;
 
     private const MACROS = __DIR__ . '/../../macros';
 
@@ -28,6 +29,7 @@ class PhunkieProcessor
         $this->erasure = new Erasure();
         $this->guards = new GuardInjector();
         $this->syntax = new SyntaxCheck();
+        $this->openingTag = new OpeningTag();
 
         // Precedence, highest first, because the first matching rule wins:
         // explicitly supplied macros (--macro-file/--macro-dir), then those
@@ -63,7 +65,7 @@ class PhunkieProcessor
 
     private function processFile(string $file, string $outputPath): array
     {
-        $content = file_get_contents($file);
+        $content = $this->openingTag->ensure((string) file_get_contents($file));
         $lines = substr_count($content, "\n") + 1;
 
         try {
@@ -73,7 +75,11 @@ class PhunkieProcessor
             // gone. Guards have to come last: placing one means knowing which
             // function a `return` sits in, which needs a tree, and the tree has
             // to be of the code as it will finally be, macros and all.
-            $transformed = $content === ''
+            //
+            // A source with nothing in it compiles to nothing, whether it is
+            // empty or holds only a newline. Left to run, the transformer would
+            // open a tag over an empty file and call that a compilation.
+            $transformed = trim($content) === ''
                 ? ''
                 : $this->guards->inject(
                     $this->transformer->transform($this->erasure->erase($content), $file)

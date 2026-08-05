@@ -6,4 +6,6 @@ $y = $option match {
     None => 0
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Some($value)) => $value + 1, $on(None) => 0, })(pmatch($option));
+<?php
+
+$y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Some($value)) => $value + 1, $on(None) => 0, })(pmatch($option));

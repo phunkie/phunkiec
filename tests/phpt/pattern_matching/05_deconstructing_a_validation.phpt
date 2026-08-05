@@ -6,4 +6,6 @@ $y = $validation match {
     Failure($e) => $e->getMessage()
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Success($a)) => $a, $on(\Phunkie\PatternMatching\Referenced\Failure($e)) => $e->getMessage(), })(pmatch($validation));
+<?php
+
+$y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Success($a)) => $a, $on(\Phunkie\PatternMatching\Referenced\Failure($e)) => $e->getMessage(), })(pmatch($validation));

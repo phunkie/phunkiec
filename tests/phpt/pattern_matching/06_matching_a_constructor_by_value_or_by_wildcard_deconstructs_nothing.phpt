@@ -7,4 +7,6 @@ $y = $option match {
     None => "none"
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(Some(42)) => "the answer", $on(Some(_)) => "some other", $on(None) => "none", })(pmatch($option));
+<?php
+
+$y = (fn($on) => match (true) { $on(Some(42)) => "the answer", $on(Some(_)) => "some other", $on(None) => "none", })(pmatch($option));

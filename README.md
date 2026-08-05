@@ -18,6 +18,10 @@ phunkiec <input> --out <path> [--watch] [--macro-dir <dir>]... [--macro-file <fi
 
 A short option takes its value either way round, `-o build` or `-o=build`.
 
+A `.phunkie` file is only ever PHP, so it need not say `<?php`. The compiler
+opens the file for you, on its own first line. A source that opens its own tag
+is left exactly as written, so nothing already written has to change.
+
 ```bash
 phunkiec src --out build
 ```

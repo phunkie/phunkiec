@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f78d44aac5aa71b02fcdde95fdb90b3f",
+    "content-hash": "6c6eabb4aaa3997ba6fe4f91de1b8cdc",
     "packages": [
         {
             "name": "md/syn",

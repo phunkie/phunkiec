@@ -6,4 +6,6 @@ $y = $either match {
     Left($e) => $e->getMessage()
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Right($a)) => $a, $on(\Phunkie\PatternMatching\Referenced\Left($e)) => $e->getMessage(), })(pmatch($either));
+<?php
+
+$y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Right($a)) => $a, $on(\Phunkie\PatternMatching\Referenced\Left($e)) => $e->getMessage(), })(pmatch($either));

@@ -1,7 +1,5 @@
 --TEST--
 A function taking a list of integers erases its type argument to a guard
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 

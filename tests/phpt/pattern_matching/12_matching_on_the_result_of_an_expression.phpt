@@ -6,4 +6,6 @@ $y = $response->status() match {
     _ => "not ok"
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(200) => "ok", $on(_) => "not ok", })(pmatch($response->status()));
+<?php
+
+$y = (fn($on) => match (true) { $on(200) => "ok", $on(_) => "not ok", })(pmatch($response->status()));

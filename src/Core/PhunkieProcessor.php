@@ -4,15 +4,21 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Core;
 
+use Phunkie\Compiler\Generics\Erasure;
+use Phunkie\Compiler\Generics\GuardInjector;
+use RuntimeException;
 use Syn\Core\Configuration;
 use Syn\Macro\MacroLoader;
 use Syn\Transformer\Transformer;
-use Symfony\Component\Finder\Finder;
 
 class PhunkieProcessor
 {
     private Transformer $transformer;
     private MacroLoader $macroLoader;
+    private Erasure $erasure;
+    private GuardInjector $guards;
+    private SyntaxCheck $syntax;
+    private OpeningTag $openingTag;
 
     private const MACROS = __DIR__ . '/../../macros';
 
@@ -20,6 +26,10 @@ class PhunkieProcessor
     {
         $this->macroLoader = new MacroLoader();
         $this->transformer = new Transformer($this->macroLoader);
+        $this->erasure = new Erasure();
+        $this->guards = new GuardInjector();
+        $this->syntax = new SyntaxCheck();
+        $this->openingTag = new OpeningTag();
 
         // Precedence, highest first, because the first matching rule wins:
         // explicitly supplied macros (--macro-file/--macro-dir), then those
@@ -55,18 +65,34 @@ class PhunkieProcessor
 
     private function processFile(string $file, string $outputPath): array
     {
-        $content = file_get_contents($file);
+        $content = $this->openingTag->ensure((string) file_get_contents($file));
         $lines = substr_count($content, "\n") + 1;
 
         try {
-            $transformed = $content === ''
+            // Three passes, in this order because each needs what the one
+            // before it leaves. Erasure has to come first: a type argument is
+            // not PHP, so nothing can parse the file until the brackets are
+            // gone. Guards have to come last: placing one means knowing which
+            // function a `return` sits in, which needs a tree, and the tree has
+            // to be of the code as it will finally be, macros and all.
+            //
+            // A source with nothing in it compiles to nothing, whether it is
+            // empty or holds only a newline. Left to run, the transformer would
+            // open a tag over an empty file and call that a compilation.
+            $transformed = trim($content) === ''
                 ? ''
-                : $this->transformer->transform($content, $file);
+                : $this->guards->inject(
+                    $this->transformer->transform($this->erasure->erase($content), $file)
+                );
 
-            $outputDir = dirname($outputPath);
-            if (!is_dir($outputDir)) {
-                mkdir($outputDir, 0755, true);
-            }
+            // Before anything is written, because a file that is known not to
+            // parse is worse on disk than absent: a build made of it looks
+            // whole. Leaving the last good output alone is the friendlier
+            // failure, and under a watch it is the only one that lets you keep
+            // working while you fix the source.
+            $this->syntax->assertParses($transformed);
+
+            $this->ensureDirectory(dirname($outputPath));
 
             file_put_contents($outputPath, $transformed);
 
@@ -87,17 +113,37 @@ class PhunkieProcessor
         }
     }
 
+    /**
+     * Looking before creating is safe in a compile that runs once and not in a
+     * watch that runs for hours, where the directory can appear or go between
+     * the look and the write. What mkdir did decides, so a directory somebody
+     * else made in the meantime is success, and one that cannot be made at all
+     * is an error on the file rather than a warning and an empty output.
+     */
+    private function ensureDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            return;
+        }
+
+        if (@mkdir($directory, 0755, true)) {
+            return;
+        }
+
+        clearstatcache(true, $directory);
+
+        if (!is_dir($directory)) {
+            throw new RuntimeException(sprintf('Could not create the output directory "%s".', $directory));
+        }
+    }
+
     private function processDirectory(string $inputDir, string $outputDir): array
     {
-        $finder = new Finder();
-        $finder->files()->name('*.phunkie')->in($inputDir);
+        $outputDirectory = new OutputDirectory($outputDir);
 
         $results = [];
-        foreach ($finder as $file) {
-            $relativePath = $file->getRelativePathname();
-            $outputPath = $outputDir . '/' . preg_replace('/\.phunkie$/', '.php', $relativePath);
-
-            $results[] = $this->processFile($file->getRealPath(), $outputPath);
+        foreach ((new SourceTree($inputDir))->files() as $source) {
+            $results[] = $this->processFile($source->path, $outputDirectory->forSource($source->relativePath));
         }
 
         return $results;

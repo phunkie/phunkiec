@@ -7,4 +7,6 @@ $y = $x match {
     _ => "many"
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(1) => "one", $on(2) => "two", $on(_) => "many", })(pmatch($x));
+<?php
+
+$y = (fn($on) => match (true) { $on(1) => "one", $on(2) => "two", $on(_) => "many", })(pmatch($x));

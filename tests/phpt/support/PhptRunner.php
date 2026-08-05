@@ -98,24 +98,54 @@ final class PhptRunner
     public static function compile(array $sections): string
     {
         $configuration = new Configuration();
+        $temporary = [];
 
         if (($sections['MACRO-FILE'] ?? '') !== '') {
-            $macroFile = tempnam(sys_get_temp_dir(), 'phunkiec_macro_') . '.syn';
+            $macroFile = self::temporaryFile('macro', 'syn', $temporary);
             file_put_contents($macroFile, $sections['MACRO-FILE']);
             $configuration->addMacroFile($macroFile);
         }
 
-        $input = tempnam(sys_get_temp_dir(), 'phunkiec_in_') . '.phunkie';
-        $output = tempnam(sys_get_temp_dir(), 'phunkiec_out_') . '.php';
+        $input = self::temporaryFile('in', 'phunkie', $temporary);
+        $output = self::temporaryFile('out', 'php', $temporary);
         file_put_contents($input, ($sections['FILE'] ?? '') . "\n");
 
-        (new PhunkieProcessor($configuration))->process($input, $output);
+        $results = (new PhunkieProcessor($configuration))->process($input, $output);
 
-        $compiled = (string) file_get_contents($output);
+        // Nothing is written for a source that compiles to PHP which does not
+        // parse, so the output is read only if it is there, and the reason is
+        // raised rather than the fixture reporting an empty file.
+        $compiled = is_file($output) ? (string) file_get_contents($output) : '';
 
-        @unlink($input);
-        @unlink($output);
+        foreach ($temporary as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+
+        foreach ($results as $result) {
+            if ($result['status'] === 'error') {
+                throw new \RuntimeException($result['error']);
+            }
+        }
 
         return trim($compiled);
+    }
+
+    /**
+     * tempnam creates the file it names, and the extension has to go on the
+     * end of that name, so both paths are remembered and both are removed.
+     *
+     * @param list<string> $temporary
+     */
+    private static function temporaryFile(string $purpose, string $extension, array &$temporary): string
+    {
+        $base = (string) tempnam(sys_get_temp_dir(), 'phunkiec_' . $purpose . '_');
+        $path = $base . '.' . $extension;
+
+        $temporary[] = $base;
+        $temporary[] = $path;
+
+        return $path;
     }
 }

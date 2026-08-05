@@ -6,4 +6,6 @@ $y = $x match {
     ($a, $b, $c) => $a + $b + $c
 };
 --EXPECT--
-<?php $y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Pair($a, $b)) => $a + $b, $on(\Phunkie\PatternMatching\Referenced\Tuple($a, $b, $c)) => $a + $b + $c, })(pmatch($x));
+<?php
+
+$y = (fn($on) => match (true) { $on(\Phunkie\PatternMatching\Referenced\Pair($a, $b)) => $a + $b, $on(\Phunkie\PatternMatching\Referenced\Tuple($a, $b, $c)) => $a + $b + $c, })(pmatch($x));

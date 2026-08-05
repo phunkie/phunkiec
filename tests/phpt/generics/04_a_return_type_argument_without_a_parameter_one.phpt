@@ -1,7 +1,5 @@
 --TEST--
 A return type argument is guarded even when no parameter has one
---PENDING--
-Generics are design only; see docs/generics.md
 --FILE--
 <?php
 

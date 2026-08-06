@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Phunkie\Compiler\Generics;
 
 use PhpToken;
+use Phunkie\Stan\Type\Cursor;
+use Phunkie\Stan\Type\TypeApplication;
+use Phunkie\Stan\Type\TypeParser;
+use Phunkie\Stan\Type\TypeSyntaxError;
 
 /**
  * Takes the type arguments out of a signature, and remembers what they said.
@@ -383,35 +387,67 @@ final class Erasure
             return [$tokens, []];
         }
 
-        $tokens = $this->splitShifts($tokens, $open);
-        $depth = 0;
+        $name = $this->lastNameBefore($tokens, $open);
+        $text = $this->render(array_slice($tokens, $name));
 
-        for ($close = $open; $close < count($tokens); $close++) {
-            $text = $tokens[$close]->text;
-
-            if ($text === '<') {
-                $depth++;
-            }
-
-            if ($text === '>') {
-                $depth--;
-
-                if ($depth === 0) {
-                    break;
-                }
-            }
-        }
-
-        if ($depth !== 0) {
+        try {
+            $cursor = new Cursor($text);
+            $type = (new TypeParser())->type($cursor);
+        } catch (TypeSyntaxError) {
             return [$tokens, []];
         }
 
-        $arguments = array_map(
-            fn (array $argument): string => trim($this->render($argument)),
-            $this->splitTypeArguments(array_slice($tokens, $open + 1, $close - $open - 1))
-        );
+        if (!$type instanceof TypeApplication) {
+            return [$tokens, []];
+        }
 
-        return [array_merge(array_slice($tokens, 0, $open), array_slice($tokens, $close + 1)), $arguments];
+        $close = $this->tokenAt($tokens, $name, $cursor->offset());
+
+        return [
+            array_merge(array_slice($tokens, 0, $open), array_slice($tokens, $close)),
+            array_map('strval', $type->arguments),
+        ];
+    }
+
+    /**
+     * Where the name in front of a bracket begins.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function lastNameBefore(array $tokens, int $open): int
+    {
+        $at = $open - 1;
+
+        while ($at > 0 && $tokens[$at]->is(T_WHITESPACE)) {
+            $at--;
+        }
+
+        return $at;
+    }
+
+    /**
+     * The token a byte offset falls on, counting from a token.
+     *
+     * The grammar answers in bytes because it reads characters, and this reads
+     * tokens, so one of them has to translate. It is done here because the
+     * grammar is the shared definition and this is the one caller that thinks
+     * in tokens.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function tokenAt(array $tokens, int $from, int $offset): int
+    {
+        $seen = 0;
+
+        for ($at = $from; $at < count($tokens); $at++) {
+            if ($seen >= $offset) {
+                return $at;
+            }
+
+            $seen += strlen($tokens[$at]->text);
+        }
+
+        return count($tokens);
     }
 
     /**
@@ -436,96 +472,6 @@ final class Erasure
         }
 
         return -1;
-    }
-
-    /**
-     * Puts back the brackets PHP's lexer ran together.
-     *
-     * A nested group closes on `>>`, which lexes as one shift token, and on
-     * `>>>` as a shift and a bracket. Inside a type argument there is no shift
-     * operator for it to be confused with, so within the group the token is
-     * split into the two brackets it stands for. The scan stops where the group
-     * does, leaving any real shift further along the line alone: a parameter
-     * may well be written `$bits = 8 >> 2`.
-     *
-     * @param list<PhpToken> $tokens
-     *
-     * @return list<PhpToken>
-     */
-    private function splitShifts(array $tokens, int $open): array
-    {
-        $depth = 0;
-        $position = $open;
-
-        while ($position < count($tokens)) {
-            $token = $tokens[$position];
-
-            if ($token->is(T_SR) && $depth > 0) {
-                array_splice($tokens, $position, 1, [
-                    new PhpToken(ord('>'), '>'),
-                    new PhpToken(ord('>'), '>'),
-                ]);
-
-                continue;
-            }
-
-            if ($token->text === '<') {
-                $depth++;
-            }
-
-            if ($token->text === '>') {
-                $depth--;
-
-                if ($depth === 0) {
-                    return $tokens;
-                }
-            }
-
-            $position++;
-        }
-
-        return $tokens;
-    }
-
-    /**
-     * Splits type arguments, which nest in angle brackets rather than in the
-     * round ones a parameter list nests in: the comma in
-     * `ImmList<ImmMap<String, Int>>` belongs to the map, not to the list.
-     *
-     * @param list<PhpToken> $tokens
-     *
-     * @return list<list<PhpToken>>
-     */
-    private function splitTypeArguments(array $tokens): array
-    {
-        $chunks = [];
-        $current = [];
-        $depth = 0;
-
-        foreach ($tokens as $token) {
-            if ($token->text === '<') {
-                $depth++;
-            }
-
-            if ($token->text === '>') {
-                $depth--;
-            }
-
-            if ($token->text === ',' && $depth === 0) {
-                $chunks[] = $current;
-                $current = [];
-
-                continue;
-            }
-
-            $current[] = $token;
-        }
-
-        if ($current !== []) {
-            $chunks[] = $current;
-        }
-
-        return $chunks;
     }
 
     /**

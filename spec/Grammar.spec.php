@@ -53,6 +53,12 @@ describe("Grammar", function () {
             'an arrow function' => '$xs->map(fn($n) => $n * 2);',
             'a constructor pattern' => '$r = $x match { Some($v) => $v };',
             'a tuple pattern' => '$r = $x match { ($a, $b) => $a };',
+            // Read as a callable type and then found to be broken. Whether it
+            // was ever notation is PHP's to answer, and PHP is content with it.
+            'an array key in brackets' => '$a = [(FOO) => $x];',
+            // Read as a callable type and found to be whole, which is worse:
+            // what the grammar says it found is what the compiler removes.
+            'an array key with concatenation' => '$a = [(FOO) => BAR . "x"];',
         ];
 
         foreach ($written as $source) {

@@ -12,6 +12,7 @@ use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\ClassLike;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\Node\Stmt\Function_;
+use PhpParser\Node\Stmt\Property;
 use PhpParser\NodeVisitorAbstract;
 use Phunkie\Stan\Source\Region;
 use Phunkie\Stan\Type\DeclarationHeader;
@@ -77,6 +78,16 @@ final class ErasureVisitor extends NodeVisitorAbstract
 
         if ($node instanceof ClassMethod || $node instanceof Function_ || $node instanceof Closure) {
             $this->enterFunction($node);
+
+            return null;
+        }
+
+        // A property declared as a type parameter has the same problem a
+        // parameter does and none of the promise: `private T $value` is not a
+        // property PHP can have, and there is no call for a guard to sit in
+        // front of.
+        if ($node instanceof Property) {
+            $this->eraseVariableIn($node->type, $this->enclosing()->parameters, []);
         }
 
         return null;
@@ -126,12 +137,18 @@ final class ErasureVisitor extends NodeVisitorAbstract
      * called A. Those come out of the source all the same, because `A $a` is
      * not PHP, and they promise nothing until there is somewhere for a
      * method's own arguments to live.
+     *
+     * A static declaration is in the second set rather than the first, whatever
+     * its class bound, because there is no object there to be asked. The guard
+     * it would otherwise be given reads `$this` in a scope that has none, which
+     * PHP stops the moment the method is called.
      */
     private function enterFunction(ClassMethod|Function_|Closure $node): void
     {
         $enclosing = $this->enclosing();
-        $held = $enclosing->parameters;
-        $bound = $this->namesBoundBy($node);
+        $unreachable = $this->hasNoObject($node) ? $enclosing->parameters : [];
+        $held = array_values(array_diff($enclosing->parameters, $unreachable));
+        $bound = array_merge($this->namesBoundBy($node), $unreachable);
         $types = $this->typesIn($node);
 
         $parameters = [];
@@ -185,11 +202,17 @@ final class ErasureVisitor extends NodeVisitorAbstract
     {
         $returnType = $node->getReturnType();
 
-        if ($returnType instanceof Name && in_array($returnType->toString(), array_merge($held, $bound), true)) {
+        if ($returnType !== null && $this->mentionsAny($returnType, array_merge($held, $bound))) {
+            // The colon goes with the type it introduced, so what is left is a
+            // declaration that says nothing rather than one that will not parse.
             $this->edits[] = new Edit(new Region(
                 $this->colonBefore($returnType->getStartFilePos()),
                 $returnType->getEndFilePos() + 1
             ));
+
+            if (!$returnType instanceof Name) {
+                return [];
+            }
 
             return $this->checkable([$returnType->toString()], $bound);
         }
@@ -231,13 +254,65 @@ final class ErasureVisitor extends NodeVisitorAbstract
      */
     private function typeVariableOf(Param $param, array $held, array $bound): ?string
     {
-        if (!$param->type instanceof Name || !in_array($param->type->toString(), array_merge($held, $bound), true)) {
+        return $this->eraseVariableIn($param->type, $held, $bound);
+    }
+
+    /**
+     * Removes a type declaration that mentions a type parameter, wherever in it
+     * the parameter was written.
+     *
+     * The whole declaration goes, not the part that named a parameter. `T|int`
+     * left as `int` would refuse a T, which is a value the union was written to
+     * allow, so keeping the readable half turns a working call into a
+     * `TypeError`. Dropping it all lets more through than was promised, and the
+     * guard is what narrows it again. That is the safe direction, and it is the
+     * same one the checker takes.
+     *
+     * Only a parameter standing alone is promised. `?T` admits null and
+     * `assertTypeVariable` would refuse it, so a guard there would be a
+     * different promise from the one that was written.
+     *
+     * @param list<string> $held
+     * @param list<string> $bound
+     */
+    private function eraseVariableIn(?Node $type, array $held, array $bound): ?string
+    {
+        if ($type === null || !$this->mentionsAny($type, array_merge($held, $bound))) {
             return null;
         }
 
-        $this->edits[] = new Edit(new Region($param->type->getStartFilePos(), $param->type->getEndFilePos() + 1));
+        $this->edits[] = new Edit(new Region($type->getStartFilePos(), $type->getEndFilePos() + 1));
 
-        return in_array($param->type->toString(), $held, true) ? $param->type->toString() : null;
+        if (!$type instanceof Name) {
+            return null;
+        }
+
+        return in_array($type->toString(), $held, true) ? $type->toString() : null;
+    }
+
+    /**
+     * Whether a type declaration names any of these anywhere inside it, which
+     * covers `T`, `?T`, `T|int` and `T&Countable` alike.
+     *
+     * @param list<string> $names
+     */
+    private function mentionsAny(Node $type, array $names): bool
+    {
+        if ($type instanceof Name) {
+            return in_array($type->toString(), $names, true);
+        }
+
+        foreach ($type->getSubNodeNames() as $subNode) {
+            $value = $type->{$subNode};
+
+            foreach (is_array($value) ? $value : [$value] as $part) {
+                if ($part instanceof Node && $this->mentionsAny($part, $names)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -311,6 +386,19 @@ final class ErasureVisitor extends NodeVisitorAbstract
         }
 
         return array_map('strval', $type->arguments);
+    }
+
+    /**
+     * Whether a declaration runs without an object behind it, and so has
+     * nothing to ask what its class's type parameters stand for.
+     */
+    private function hasNoObject(ClassMethod|Function_|Closure $node): bool
+    {
+        if ($node instanceof ClassMethod) {
+            return $node->isStatic();
+        }
+
+        return $node instanceof Closure ? $node->static : true;
     }
 
     /**

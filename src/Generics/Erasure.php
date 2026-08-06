@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Generics;
 
-use PhpParser\Error;
+use PhpParser\ErrorHandler\Collecting;
+use PhpParser\Node;
 use PhpParser\NodeTraverser;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
 use Phunkie\Stan\Source\Region;
 use Phunkie\Stan\Type\Notation;
 use Phunkie\Stan\Type\ReadNotation;
+use RuntimeException;
 
 /**
  * Takes the type notation out of a source, and remembers what it said.
@@ -72,14 +74,18 @@ final class Erasure
      * What the declarations in a source promised, and what has to come out of
      * them beyond the notation itself.
      *
+     * @throws RuntimeException When no declaration in the source could be read
+     *
      * @return list<Edit>
      */
     private function promised(ReadNotation $read): array
     {
         $nodes = $this->parse($read->php);
 
-        if ($nodes === null) {
-            return [];
+        if ($nodes === []) {
+            throw new RuntimeException(
+                'The source promised something in its types, and none of its declarations could be read.'
+            );
         }
 
         $visitor = new ErasureVisitor($this->marker, $read);
@@ -90,18 +96,24 @@ final class Erasure
     }
 
     /**
-     * @return array<Node>|null The tree, or null where there is none to walk
+     * Reads the declarations out of a source that is not PHP yet.
+     *
+     * It is not PHP yet on purpose: this runs before the macros, so a
+     * comprehension or a match is still written the way phunkie writes it and
+     * PHP has no idea what either is. That is why the errors are collected
+     * rather than thrown. A statement PHP cannot read says nothing about the
+     * declaration it sits in, and the guards are about declarations.
+     *
+     * The scanner this replaced never had the problem, because tokens do not
+     * have to mean anything. Reading a tree bought everything else and cost
+     * this, and recovery is what buys it back until the grammar reads
+     * statements too.
+     *
+     * @return array<Node> The declarations that could be read, which is every
+     *                     one of them whenever only statements were broken
      */
-    private function parse(string $php): ?array
+    private function parse(string $php): array
     {
-        try {
-            return $this->parser->parse($php);
-        } catch (Error) {
-            // Blanking the notation left something PHP cannot read, so nothing
-            // here can say which declaration promised what. The notation still
-            // comes out, and saying what is wrong belongs to the check that
-            // reads the output rather than to this.
-            return null;
-        }
+        return $this->parser->parse($php, new Collecting()) ?? [];
     }
 }

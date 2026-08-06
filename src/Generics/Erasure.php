@@ -4,724 +4,104 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Generics;
 
-use PhpToken;
-use Phunkie\Stan\Type\Cursor;
-use Phunkie\Stan\Type\TypeApplication;
-use Phunkie\Stan\Type\TypeParser;
-use Phunkie\Stan\Type\TypeSyntaxError;
+use PhpParser\Error;
+use PhpParser\NodeTraverser;
+use PhpParser\Parser;
+use PhpParser\ParserFactory;
+use Phunkie\Stan\Source\Region;
+use Phunkie\Stan\Type\Notation;
+use Phunkie\Stan\Type\ReadNotation;
 
 /**
- * Takes the type arguments out of a signature, and remembers what they said.
+ * Takes the type notation out of a source, and remembers what it said.
  *
- * This runs on tokens rather than on a syntax tree, and it has to: `ImmList<Int>
- * $numbers` is not PHP, so there is no tree to run on until the brackets are
- * gone. Erasing is therefore the first thing that happens to a source and the
- * only chance anything has to read them.
+ * Two readers used to look at the same text: the grammar, to say whether it
+ * was phunkie, and a scanner here, to take it out. They agreed about
+ * `ImmList<Int>` and disagreed about everything else, and every disagreement
+ * looked the same from the outside, as PHP that would not parse. So a
+ * qualified name, an array of a type and a function's shape were all read
+ * happily by one and left untouched by the other.
  *
- * It is safe to erase `<`, whatever else is in the file, because PHP 8 made
- * comparison non-associative: `$a < $b > $c` is a parse error rather than an
- * expression, so the shape being matched here can never be a comparison that
- * someone meant.
+ * There is one reader now. The grammar says where the notation was and this
+ * removes exactly that, so the two cannot drift: notation the grammar learns
+ * to read is notation this erases, without a line changing here.
  *
- * Closures are not covered: there is no name to address a guard to, so their
- * signatures are handed back exactly as written rather than half erased.
+ * What is left is the part that is not about the notation but about the
+ * declaration carrying it: whose signature promised what, and which parameter
+ * of it. That is structure, so it is read from the tree of the source with its
+ * notation blanked out, which is the same source with the same offsets.
  */
 final class Erasure
 {
-    private Marker $marker;
+    private readonly Parser $parser;
 
-    public function __construct()
-    {
-        $this->marker = new Marker();
+    /**
+     * @param Notation $notation Reads phunkie's notation and says where it was
+     * @param Marker   $marker   Writes what a declaration promised
+     */
+    public function __construct(
+        private readonly Notation $notation = new Notation(),
+        private readonly Marker $marker = new Marker(),
+    ) {
+        $this->parser = (new ParserFactory())->createForNewestSupportedVersion();
     }
 
+    /**
+     * @param string $source Source, already opened with a PHP tag
+     *
+     * @return string The same source as PHP, with what it promised marked on
+     *                the declarations that promised it
+     */
     public function erase(string $source): string
     {
-        if (!str_contains($source, '<')) {
+        $read = $this->notation->readFrom($source);
+
+        if ($read->blanks === []) {
             return $source;
         }
 
-        $tokens = PhpToken::tokenize($source);
-        $count = count($tokens);
-        $emitted = [];
-        $classes = [];
-        $depth = 0;
-        $position = 0;
+        $removals = array_map(
+            static fn (Region $blank): Edit => new Edit($blank),
+            $read->blanks
+        );
 
-        while ($position < $count) {
-            $token = $tokens[$position];
-
-            if ($token->text === '{') {
-                $depth++;
-            }
-
-            if ($token->text === '}') {
-                $depth--;
-
-                while ($classes !== [] && end($classes)['depth'] >= $depth) {
-                    array_pop($classes);
-                }
-            }
-
-            if ($this->opensAClass($tokens, $position)) {
-                $name = $this->nameAfter($tokens, $position);
-
-                if ($name !== null) {
-                    $classes[] = ['name' => $name, 'depth' => $depth];
-
-                    // A class says it is generic by naming its parameters, and
-                    // that is all it has to say: how many it takes. What they
-                    // are is read from the value, which is why the parameters
-                    // themselves are erased and only the count is kept.
-                    [$declaration, $parameters, $position] = $this->eraseParameterList($tokens, $position);
-                    $classes[count($classes) - 1]['parameters'] = $parameters;
-
-                    if ($parameters !== []) {
-                        $emitted = $this->insertMarker($emitted, $this->marker->writeType($parameters));
-                    }
-
-                    $emitted = array_merge($emitted, $declaration);
-
-                    continue;
-                }
-            }
-
-            if (!$token->is(T_FUNCTION)) {
-                $emitted[] = $token;
-                $position++;
-
-                continue;
-            }
-
-            $enclosing = $classes === [] ? null : end($classes);
-
-            [$signatureTokens, $signature, $position] = $this->eraseSignature($tokens, $position, $enclosing);
-
-            if ($signature !== null && !$signature->isEmpty()) {
-                $emitted = $this->mark($emitted, $signature);
-            }
-
-            $emitted = array_merge($emitted, $signatureTokens);
-        }
-
-        return $this->render($emitted);
+        return (new Edits(array_merge($removals, $this->promised($read))))->applyTo($source);
     }
 
     /**
-     * Puts the marker in front of the declaration.
+     * What the declarations in a source promised, and what has to come out of
+     * them beyond the notation itself.
      *
-     * An attribute goes before the modifiers, not after, so `public function`
-     * has to be stepped back over to reach the place PHP will accept it.
-     *
-     * @param list<PhpToken> $emitted
-     *
-     * @return list<PhpToken>
+     * @return list<Edit>
      */
-    private function mark(array $emitted, Signature $signature): array
+    private function promised(ReadNotation $read): array
     {
-        return $this->insertMarker($emitted, $this->marker->write(
-            $signature->function,
-            $signature->parameters,
-            $signature->returnArguments,
-            $signature->needsOwner()
-        ));
+        $nodes = $this->parse($read->php);
+
+        if ($nodes === null) {
+            return [];
+        }
+
+        $visitor = new ErasureVisitor($this->marker, $read);
+
+        (new NodeTraverser($visitor))->traverse($nodes);
+
+        return $visitor->edits();
     }
 
     /**
-     * @param list<PhpToken> $emitted
-     *
-     * @return list<PhpToken>
+     * @return array<Node>|null The tree, or null where there is none to walk
      */
-    private function insertMarker(array $emitted, string $text): array
+    private function parse(string $php): ?array
     {
-        $at = count($emitted);
-
-        while (($before = $this->modifierBefore($emitted, $at)) !== null) {
-            $at = $before;
-        }
-
-        array_splice($emitted, $at, 0, [
-            new PhpToken(T_ATTRIBUTE, $text),
-            new PhpToken(T_WHITESPACE, ' '),
-        ]);
-
-        return $emitted;
-    }
-
-    /**
-     * Where a modifier sitting just before this point begins, if one does.
-     *
-     * Only modifiers are stepped over. Anything else means the declaration
-     * starts here: a closure is preceded by whatever it is being assigned to,
-     * and moving in front of that would take the marker with it.
-     *
-     * @param list<PhpToken> $emitted
-     */
-    private function modifierBefore(array $emitted, int $at): ?int
-    {
-        while ($at > 0 && $emitted[$at - 1]->is(T_WHITESPACE) && !str_contains($emitted[$at - 1]->text, "\n")) {
-            $at--;
-        }
-
-        if ($at === 0 || !$this->isModifier($emitted[$at - 1])) {
+        try {
+            return $this->parser->parse($php);
+        } catch (Error) {
+            // Blanking the notation left something PHP cannot read, so nothing
+            // here can say which declaration promised what. The notation still
+            // comes out, and saying what is wrong belongs to the check that
+            // reads the output rather than to this.
             return null;
         }
-
-        return $at - 1;
-    }
-
-    private function isModifier(PhpToken $token): bool
-    {
-        return $token->is(T_PUBLIC)
-            || $token->is(T_PROTECTED)
-            || $token->is(T_PRIVATE)
-            || $token->is(T_STATIC)
-            || $token->is(T_FINAL)
-            || $token->is(T_ABSTRACT)
-            || $token->is(T_READONLY);
-    }
-
-    /**
-     * Emits `class Stack` for `class Stack<T>`, and hands back where the
-     * declaration got to.
-     *
-     * @param list<PhpToken> $tokens
-     *
-     * @return array{list<PhpToken>, int}
-     */
-    private function eraseParameterList(array $tokens, int $position): array
-    {
-        $body = $this->startOfBody($tokens, $position);
-        [$erased, $parameters] = $this->eraseArguments(array_slice($tokens, $position, $body - $position));
-
-        return [$erased, $parameters, $body];
-    }
-
-    /**
-     * Where a declaration stops and its body begins.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private function startOfBody(array $tokens, int $position): int
-    {
-        $count = count($tokens);
-
-        while ($position < $count && $tokens[$position]->text !== '{') {
-            $position++;
-        }
-
-        return $position;
-    }
-
-    /**
-     * Whether a class body starts here, as opposed to `Foo::class` being read.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private function opensAClass(array $tokens, int $position): bool
-    {
-        if (!$tokens[$position]->is(T_CLASS) && !$tokens[$position]->is(T_TRAIT) && !$tokens[$position]->is(T_INTERFACE) && !$tokens[$position]->is(T_ENUM)) {
-            return false;
-        }
-
-        $previous = $position - 1;
-
-        while ($previous >= 0 && $tokens[$previous]->is(T_WHITESPACE)) {
-            $previous--;
-        }
-
-        return $previous < 0 || !$tokens[$previous]->is(T_DOUBLE_COLON);
-    }
-
-    /**
-     * The name a declaration was given, or null where it has none: an anonymous
-     * class has nothing a guard could be addressed to.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private function nameAfter(array $tokens, int $position): ?string
-    {
-        $count = count($tokens);
-        $position++;
-
-        while ($position < $count && $tokens[$position]->is(T_WHITESPACE)) {
-            $position++;
-        }
-
-        return $position < $count && $tokens[$position]->is(T_STRING) ? $tokens[$position]->text : null;
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     *
-     * @return array{list<PhpToken>, Signature|null, int}
-     */
-    private function eraseSignature(array $tokens, int $start, ?array $enclosing): array
-    {
-        $count = count($tokens);
-        $emitted = [$tokens[$start]];
-        $position = $this->skip($tokens, $start + 1, $emitted, ['&']);
-
-        // A closure has no name. It is guarded all the same, because what it
-        // promised travels on the declaration rather than under a name.
-        $function = null;
-
-        if ($position < $count && $tokens[$position]->is(T_STRING)) {
-            $function = $tokens[$position]->text;
-            $emitted[] = $tokens[$position];
-            $position = $this->skip($tokens, $position + 1, $emitted, []);
-        }
-
-        if ($position >= $count || $tokens[$position]->text !== '(') {
-            return [$emitted, null, $position];
-        }
-
-        $close = $this->matching($tokens, $position);
-
-        if ($close === -1) {
-            return [$emitted, null, $position];
-        }
-
-        $variables = $enclosing['parameters'] ?? [];
-
-        [$parameterTokens, $parameters] = $this->eraseParameters(
-            array_slice($tokens, $position + 1, $close - $position - 1),
-            $variables
-        );
-
-        $emitted[] = $tokens[$position];
-        $emitted = array_merge($emitted, $parameterTokens, [$tokens[$close]]);
-        $position = $close + 1;
-
-        [$returnTokens, $returnArguments, $position] = $this->eraseReturnType($tokens, $position, $variables);
-        $emitted = array_merge($emitted, $returnTokens);
-
-        $signature = new Signature(
-            $this->marker->nameFor($enclosing['name'] ?? null, $function),
-            $parameters,
-            $returnArguments,
-            $this->mentions($parameters, $returnArguments, $variables)
-        );
-
-        return [$emitted, $signature, $position];
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     *
-     * @return array{list<PhpToken>, list<Parameter>}
-     */
-    private function eraseParameters(array $tokens, array $variables = []): array
-    {
-        $emitted = [];
-        $parameters = [];
-        $position = 0;
-
-        foreach ($this->splitParameters($tokens) as $chunk) {
-            if ($position > 0) {
-                $emitted[] = new PhpToken(ord(','), ',');
-            }
-
-            [$chunk, $arguments] = $this->eraseArguments($chunk);
-            [$chunk, $stands] = $this->eraseTypeVariable($chunk, $variables);
-            $emitted = array_merge($emitted, $chunk);
-            $name = $this->variableIn($chunk);
-
-            if ($name === null) {
-                continue;
-            }
-
-            $position++;
-
-            if ($arguments !== [] || $stands !== null) {
-                $parameters[] = new Parameter($position, $name, $arguments, $stands);
-            }
-        }
-
-        return [$emitted, $parameters];
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     *
-     * @return array{list<PhpToken>, list<string>, int}
-     */
-    private function eraseReturnType(array $tokens, int $start, array $variables = []): array
-    {
-        $count = count($tokens);
-        $position = $start;
-
-        while ($position < $count && $tokens[$position]->is(T_WHITESPACE)) {
-            $position++;
-        }
-
-        if ($position >= $count || $tokens[$position]->text !== ':') {
-            return [[], [], $start];
-        }
-
-        $end = $this->endOfReturnType($tokens, $position);
-        [$region, $arguments] = $this->eraseArguments(array_slice($tokens, $start, $end - $start));
-
-        // A return type that is itself a type variable has no class behind it,
-        // so the declaration goes entirely and only the promise is kept.
-        [$region, $stands] = $this->eraseReturnVariable($region, $variables);
-
-        return [$region, $stands === null ? $arguments : [$stands], $end];
-    }
-
-    /**
-     * Removes one `<...>` group and reads what it said.
-     *
-     * The group is only taken where a name sits in front of it, which is what a
-     * type argument looks like and a comparison does not.
-     *
-     * @param list<PhpToken> $tokens
-     *
-     * @return array{list<PhpToken>, list<string>}
-     */
-    private function eraseArguments(array $tokens): array
-    {
-        $open = $this->openingBracket($tokens);
-
-        if ($open === -1) {
-            return [$tokens, []];
-        }
-
-        $name = $this->lastNameBefore($tokens, $open);
-        $text = $this->render(array_slice($tokens, $name));
-
-        try {
-            $cursor = new Cursor($text);
-            $type = (new TypeParser())->type($cursor);
-        } catch (TypeSyntaxError) {
-            return [$tokens, []];
-        }
-
-        if (!$type instanceof TypeApplication) {
-            return [$tokens, []];
-        }
-
-        $close = $this->tokenAt($tokens, $name, $cursor->offset());
-
-        return [
-            array_merge(array_slice($tokens, 0, $open), array_slice($tokens, $close)),
-            array_map('strval', $type->arguments),
-        ];
-    }
-
-    /**
-     * Where the name in front of a bracket begins.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private function lastNameBefore(array $tokens, int $open): int
-    {
-        $at = $open - 1;
-
-        while ($at > 0 && $tokens[$at]->is(T_WHITESPACE)) {
-            $at--;
-        }
-
-        return $at;
-    }
-
-    /**
-     * The token a byte offset falls on, counting from a token.
-     *
-     * The grammar answers in bytes because it reads characters, and this reads
-     * tokens, so one of them has to translate. It is done here because the
-     * grammar is the shared definition and this is the one caller that thinks
-     * in tokens.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private function tokenAt(array $tokens, int $from, int $offset): int
-    {
-        $seen = 0;
-
-        for ($at = $from; $at < count($tokens); $at++) {
-            if ($seen >= $offset) {
-                return $at;
-            }
-
-            $seen += strlen($tokens[$at]->text);
-        }
-
-        return count($tokens);
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function openingBracket(array $tokens): int
-    {
-        foreach ($tokens as $position => $token) {
-            if ($token->text !== '<') {
-                continue;
-            }
-
-            $previous = $position - 1;
-
-            while ($previous >= 0 && $tokens[$previous]->is(T_WHITESPACE)) {
-                $previous--;
-            }
-
-            if ($previous >= 0 && $tokens[$previous]->is(T_STRING)) {
-                return $position;
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * Splits a parameter list into its parameters.
-     *
-     * Angle brackets are counted as well as round ones, because the comma in
-     * `ImmList<ImmMap<String, Int>> $rows` belongs to the map rather than to
-     * the list. They stop being counted once a `=` has been seen: a type
-     * declaration comes before its default value, so a `<` beyond that point is
-     * a comparison in a constant expression and not a bracket looking for its
-     * pair. That also leaves a genuine shift alone, as in `$bits = 8 >> 2`.
-     *
-     * @param list<PhpToken> $tokens
-     *
-     * @return list<list<PhpToken>>
-     */
-    private function splitParameters(array $tokens): array
-    {
-        $chunks = [];
-        $current = [];
-        $depth = 0;
-        $angle = 0;
-        $default = false;
-
-        foreach ($tokens as $token) {
-            if (in_array($token->text, ['(', '['], true)) {
-                $depth++;
-            }
-
-            if (in_array($token->text, [')', ']'], true)) {
-                $depth--;
-            }
-
-            if ($token->text === '=') {
-                $default = true;
-            }
-
-            if (!$default) {
-                $angle += match (true) {
-                    $token->text === '<' => 1,
-                    $token->text === '>' => -1,
-                    $token->is(T_SR) => -2,
-                    default => 0,
-                };
-            }
-
-            if ($token->text === ',' && $depth === 0 && $angle <= 0) {
-                $chunks[] = $current;
-                $current = [];
-                $angle = 0;
-                $default = false;
-
-                continue;
-            }
-
-            $current[] = $token;
-        }
-
-        if ($current !== []) {
-            $chunks[] = $current;
-        }
-
-        return $chunks;
-    }
-
-    /**
-     * Removes a parameter's type declaration where it is a type variable.
-     *
-     * `T $item` has no class behind it, so PHP has nothing to enforce and the
-     * declaration goes. What T stands for is settled when the code runs, from
-     * the object the method was called on.
-     *
-     * @param list<PhpToken> $tokens
-     * @param list<string> $variables
-     *
-     * @return array{list<PhpToken>, string|null}
-     */
-    private function eraseTypeVariable(array $tokens, array $variables): array
-    {
-        foreach ($tokens as $at => $token) {
-            if (!$token->is(T_STRING) || !in_array($token->text, $variables, true)) {
-                continue;
-            }
-
-            $after = $at + 1;
-
-            while ($after < count($tokens) && $tokens[$after]->is(T_WHITESPACE)) {
-                $after++;
-            }
-
-            if ($after >= count($tokens) || !$tokens[$after]->is(T_VARIABLE)) {
-                continue;
-            }
-
-            // The space that separated the declaration from the variable goes
-            // with it, or the parameter is left with a gap in front of it.
-            $resume = $at + 1;
-
-            while ($resume < count($tokens) && $tokens[$resume]->is(T_WHITESPACE)) {
-                $resume++;
-            }
-
-            return [array_merge(array_slice($tokens, 0, $at), array_slice($tokens, $resume)), $token->text];
-        }
-
-        return [$tokens, null];
-    }
-
-    /**
-     * The same for a return type, where the variable follows the colon.
-     *
-     * @param list<PhpToken> $tokens
-     * @param list<string> $variables
-     *
-     * @return array{list<PhpToken>, string|null}
-     */
-    private function eraseReturnVariable(array $tokens, array $variables): array
-    {
-        foreach ($tokens as $at => $token) {
-            if ($token->is(T_STRING) && in_array($token->text, $variables, true)) {
-                return [array_slice($tokens, 0, $this->lastBefore($tokens, $at)), $token->text];
-            }
-        }
-
-        return [$tokens, null];
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function lastBefore(array $tokens, int $at): int
-    {
-        while ($at > 0 && ($tokens[$at - 1]->is(T_WHITESPACE) || $tokens[$at - 1]->text === ':')) {
-            $at--;
-        }
-
-        return $at;
-    }
-
-    /**
-     * Whether anything in the signature named one of the class's parameters.
-     *
-     * @param list<Parameter> $parameters
-     * @param list<string> $returnArguments
-     * @param list<string> $variables
-     */
-    private function mentions(array $parameters, array $returnArguments, array $variables): bool
-    {
-        foreach ($parameters as $parameter) {
-            if ($parameter->variable !== null || array_intersect($parameter->arguments, $variables) !== []) {
-                return true;
-            }
-        }
-
-        return array_intersect($returnArguments, $variables) !== [];
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function variableIn(array $tokens): ?string
-    {
-        foreach ($tokens as $token) {
-            if ($token->is(T_VARIABLE)) {
-                return ltrim($token->text, '$');
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function matching(array $tokens, int $open): int
-    {
-        $depth = 0;
-
-        for ($position = $open; $position < count($tokens); $position++) {
-            if ($tokens[$position]->text === '(') {
-                $depth++;
-            }
-
-            if ($tokens[$position]->text === ')') {
-                $depth--;
-
-                if ($depth === 0) {
-                    return $position;
-                }
-            }
-        }
-
-        return -1;
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function endOfReturnType(array $tokens, int $colon): int
-    {
-        $count = count($tokens);
-        $depth = 0;
-
-        for ($position = $colon; $position < $count; $position++) {
-            $text = $tokens[$position]->text;
-
-            if ($text === '(') {
-                $depth++;
-            }
-
-            if ($text === ')') {
-                $depth--;
-            }
-
-            if ($depth === 0 && ($text === '{' || $text === ';')) {
-                return $position;
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     * @param list<PhpToken> $emitted
-     * @param list<string> $also text of tokens to pass over as well as whitespace
-     */
-    private function skip(array $tokens, int $position, array &$emitted, array $also): int
-    {
-        $count = count($tokens);
-
-        while ($position < $count) {
-            $token = $tokens[$position];
-
-            if (!$token->is(T_WHITESPACE) && !in_array($token->text, $also, true)) {
-                return $position;
-            }
-
-            $emitted[] = $token;
-            $position++;
-        }
-
-        return $position;
-    }
-
-    /**
-     * @param list<PhpToken> $tokens
-     */
-    private function render(array $tokens): string
-    {
-        return implode('', array_map(static fn (PhpToken $token): string => $token->text, $tokens));
     }
 }

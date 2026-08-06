@@ -35,13 +35,14 @@ final class Marker
      * Written as one JSON string rather than as attribute arguments, because
      * this is read back by the compiler and never by a person.
      *
-     * @param list<Parameter> $parameters
-     * @param list<string> $returnArguments
+     * @param Signature $signature What the declaration promised
+     *
+     * @return string The attribute to put in front of the declaration
      */
-    public function write(string $function, array $parameters, array $returnArguments, bool $owned): string
+    public function write(Signature $signature): string
     {
         $promised = [
-            'f' => $function,
+            'f' => $signature->function,
             'p' => array_map(
                 static fn (Parameter $parameter): array => [
                     $parameter->position,
@@ -49,10 +50,10 @@ final class Marker
                     $parameter->arguments,
                     $parameter->variable,
                 ],
-                $parameters
+                $signature->parameters
             ),
-            'r' => $returnArguments,
-            'o' => $owned,
+            'r' => $signature->returnArguments,
+            'o' => $signature->needsOwner(),
         ];
 
         return sprintf("#[%s('%s')]", self::NAME, json_encode($promised));
@@ -61,12 +62,21 @@ final class Marker
     /**
      * How many type parameters a class declared. A class says how many it takes;
      * what they are is read from the value.
+     *
+     * @param list<string> $parameters Names it bound, in order
+     *
+     * @return string The attribute to put in front of the declaration
      */
     public function writeType(array $parameters): string
     {
         return sprintf("#[%s('%s')]", self::TYPE, json_encode($parameters));
     }
 
+    /**
+     * @param Node $node Declaration to read
+     *
+     * @return list<string>|null Names it bound, null where it bound none
+     */
     public function readTypeFrom(Node $node): ?array
     {
         foreach ($node->attrGroups as $group) {

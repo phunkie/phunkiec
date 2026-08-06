@@ -30,6 +30,15 @@ Feature: Developer can compile a .phunkie file into .php
     When I compile it
     Then the file "build/Example.php" should not have been created
 
+  # A write that fails and is not looked at is the worst of the failures here:
+  # the compile says it worked, the build is empty, and the pipeline made of it
+  # goes green.
+  Scenario: A write that could not happen is a failure, not a success
+    Given there is a file "src/One.phunkie" that is empty
+    And there is a directory "build/One.php" where the output should go
+    When I compile "src/One.phunkie" into "build/One.php"
+    Then the compiler should have failed saying "Could not write"
+
   Scenario: Empty file
     Given there is a file "src/Empty.phunkie" that is empty
     When I compile "src/Empty.phunkie" into "build/Empty.php"

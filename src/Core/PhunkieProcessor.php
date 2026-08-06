@@ -102,7 +102,7 @@ class PhunkieProcessor
 
             $this->ensureDirectory(dirname($outputPath));
 
-            file_put_contents($outputPath, $transformed);
+            $this->write($outputPath, $transformed);
 
             return [
                 'file' => $file,
@@ -119,6 +119,24 @@ class PhunkieProcessor
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Writes the output, and says so when it could not.
+     *
+     * A write that fails and is not looked at is the worst failure this has:
+     * the compile reports success, the build is empty, and the pipeline made
+     * of it goes green. `-o build` where `build` is already a directory is
+     * enough to do it, and that is the README's own directory example given a
+     * single file.
+     */
+    private function write(string $path, string $contents): void
+    {
+        if (@file_put_contents($path, $contents) !== false) {
+            return;
+        }
+
+        throw new RuntimeException(sprintf('Could not write "%s".', $path));
     }
 
     /**

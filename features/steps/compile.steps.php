@@ -10,6 +10,14 @@ given("there is a file {string} that is empty", function (string $path) {
     touch($file);
 });
 
+given("there is a directory {string} where the output should go", function (string $path) {
+    $directory = $this->workspace . '/' . $path;
+
+    if (!is_dir($directory)) {
+        mkdir($directory, 0777, true);
+    }
+});
+
 then("the compiler should have failed saying {string}", function (string $message) {
     expect($this->exitCode)->not()->toBe(0);
     expect($this->output)->toContain($message);

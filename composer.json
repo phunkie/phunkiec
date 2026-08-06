@@ -1,6 +1,6 @@
 {
     "name": "phunkie/phunkiec",
-    "description": "Phunkie preprocessor CLI — compiles .phunkie files into standard PHP",
+    "description": "Phunkie preprocessor CLI \u2014 compiles .phunkie files into standard PHP",
     "type": "project",
     "license": "MIT",
     "authors": [
@@ -11,6 +11,7 @@
     ],
     "require": {
         "php": "^8.2 || ^8.3 || ^8.4 || ^8.5",
+        "phunkie/phunkistan": "dev-main",
         "md/syn": "^0.2",
         "symfony/console": "^7.0",
         "symfony/finder": "^7.0",
@@ -33,5 +34,11 @@
         "platform": {
             "php": "8.2.0"
         }
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/phunkie/phunkistan"
+        }
+    ]
 }

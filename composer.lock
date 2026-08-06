@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6c6eabb4aaa3997ba6fe4f91de1b8cdc",
+    "content-hash": "abc3d485e4666dbdb1bb7293f8b1fdcb",
     "packages": [
         {
             "name": "md/syn",
@@ -124,6 +124,55 @@
                 "source": "https://github.com/nikic/PHP-Parser/tree/v5.8.0"
             },
             "time": "2026-07-04T14:30:18+00:00"
+        },
+        {
+            "name": "phunkie/phunkistan",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phunkie/phunkistan.git",
+                "reference": "a860062138bd3a24fbad04ddfe735b8e1c539943"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phunkie/phunkistan/zipball/a860062138bd3a24fbad04ddfe735b8e1c539943",
+                "reference": "a860062138bd3a24fbad04ddfe735b8e1c539943",
+                "shasum": ""
+            },
+            "require": {
+                "nikic/php-parser": "^5.7",
+                "php": "^8.2 || ^8.3 || ^8.4 || ^8.5"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpspec/phpspec": "9.x-dev",
+                "phpstan/phpstan": "^2.2"
+            },
+            "default-branch": true,
+            "bin": [
+                "bin/phunkistan"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Phunkie\\Stan\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Marcello Duarte",
+                    "email": "marcello.duarte@gmail.com"
+                }
+            ],
+            "description": "A type checker for phunkie",
+            "support": {
+                "source": "https://github.com/phunkie/phunkistan/tree/main",
+                "issues": "https://github.com/phunkie/phunkistan/issues"
+            },
+            "time": "2026-08-06T11:13:48+00:00"
         },
         {
             "name": "psr/container",
@@ -1024,12 +1073,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpspec/phpspec.git",
-                "reference": "18579fb5d21e9542998b46763f0f1858a00a0bf2"
+                "reference": "12bd25d31280cd4103979c49bd794b593a47a593"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpspec/phpspec/zipball/18579fb5d21e9542998b46763f0f1858a00a0bf2",
-                "reference": "18579fb5d21e9542998b46763f0f1858a00a0bf2",
+                "url": "https://api.github.com/repos/phpspec/phpspec/zipball/12bd25d31280cd4103979c49bd794b593a47a593",
+                "reference": "12bd25d31280cd4103979c49bd794b593a47a593",
                 "shasum": ""
             },
             "require": {
@@ -1115,7 +1164,7 @@
                 "issues": "https://github.com/phpspec/phpspec/issues",
                 "source": "https://github.com/phpspec/phpspec/tree/9.x"
             },
-            "time": "2026-08-02T18:16:23+00:00"
+            "time": "2026-08-05T15:16:37+00:00"
         },
         {
             "name": "symfony/yaml",
@@ -1197,7 +1246,8 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "phpspec/phpspec": 20
+        "phpspec/phpspec": 20,
+        "phunkie/phunkistan": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

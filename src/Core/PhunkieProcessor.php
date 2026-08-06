@@ -18,6 +18,7 @@ class PhunkieProcessor
     private Erasure $erasure;
     private GuardInjector $guards;
     private SyntaxCheck $syntax;
+    private Grammar $grammar;
     private OpeningTag $openingTag;
 
     private const MACROS = __DIR__ . '/../../macros';
@@ -29,6 +30,7 @@ class PhunkieProcessor
         $this->erasure = new Erasure();
         $this->guards = new GuardInjector();
         $this->syntax = new SyntaxCheck();
+        $this->grammar = new Grammar();
         $this->openingTag = new OpeningTag();
 
         // Precedence, highest first, because the first matching rule wins:
@@ -65,10 +67,16 @@ class PhunkieProcessor
 
     private function processFile(string $file, string $outputPath): array
     {
-        $content = $this->openingTag->ensure((string) file_get_contents($file));
+        $written = (string) file_get_contents($file);
+        $content = $this->openingTag->ensure($written);
         $lines = substr_count($content, "\n") + 1;
 
         try {
+            // Before anything is erased or transformed, and against the source
+            // exactly as it was written, so the place named is a place in that
+            // file rather than in something generated from it.
+            $this->grammar->assertReads($written);
+
             // Three passes, in this order because each needs what the one
             // before it leaves. Erasure has to come first: a type argument is
             // not PHP, so nothing can parse the file until the brackets are

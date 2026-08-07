@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "abc3d485e4666dbdb1bb7293f8b1fdcb",
+    "content-hash": "26f56ff395ffaff10cb111658e1fd5b7",
     "packages": [
         {
             "name": "md/syn",
@@ -126,8 +126,61 @@
             "time": "2026-07-04T14:30:18+00:00"
         },
         {
+            "name": "phunkie/phunkie",
+            "version": "1.4.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/phunkie/phunkie.git",
+                "reference": "83ba4f569dd471b46c88bac3df892fcc7ad0e941"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/phunkie/phunkie/zipball/83ba4f569dd471b46c88bac3df892fcc7ad0e941",
+                "reference": "83ba4f569dd471b46c88bac3df892fcc7ad0e941",
+                "shasum": ""
+            },
+            "require": {
+                "php": "8.2.* || 8.3.* || 8.4.* || 8.5.*"
+            },
+            "require-dev": {
+                "ergebnis/composer-normalize": "2.52.0",
+                "friendsofphp/php-cs-fixer": "3.95.13",
+                "giorgiosironi/eris": "1.1.0",
+                "phpstan/phpstan": "2.2.5",
+                "phpunit/phpunit": "11.5.56",
+                "phunkie/phpstan": "1.0.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/Phunkie/Functions/common.php"
+                ],
+                "psr-0": {
+                    "": [
+                        "src/"
+                    ]
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Marcello Duarte",
+                    "homepage": "http://marcelloduarte.net/"
+                }
+            ],
+            "description": "Functional structures library for PHP",
+            "support": {
+                "issues": "https://github.com/phunkie/phunkie/issues",
+                "source": "https://github.com/phunkie/phunkie/tree/1.4.1"
+            },
+            "time": "2026-08-05T07:34:49+00:00"
+        },
+        {
             "name": "phunkie/phunkistan",
-            "version": "dev-main",
+            "version": "0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phunkie/phunkistan.git",
@@ -148,7 +201,6 @@
                 "phpspec/phpspec": "9.x-dev",
                 "phpstan/phpstan": "^2.2"
             },
-            "default-branch": true,
             "bin": [
                 "bin/phunkistan"
             ],
@@ -158,6 +210,7 @@
                     "Phunkie\\Stan\\": "src/"
                 }
             },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -169,8 +222,8 @@
             ],
             "description": "A type checker for phunkie",
             "support": {
-                "source": "https://github.com/phunkie/phunkistan/tree/main",
-                "issues": "https://github.com/phunkie/phunkistan/issues"
+                "issues": "https://github.com/phunkie/phunkistan/issues",
+                "source": "https://github.com/phunkie/phunkistan/tree/0.1"
             },
             "time": "2026-08-06T13:08:14+00:00"
         },
@@ -1246,8 +1299,7 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "phpspec/phpspec": 20,
-        "phunkie/phunkistan": 20
+        "phpspec/phpspec": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

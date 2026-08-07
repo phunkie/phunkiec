@@ -18,7 +18,13 @@ use Syn\Core\Configuration;
  *                  rule here overrides a bundled rule of the same shape
  *   --FILE--       the `.phunkie` source to compile
  *   --EXPECT--     the expected compiled PHP (compared trimmed)
+ *   --RUN--        what running the compiled PHP should print
  *   --PENDING--    why this describes a feature that does not exist yet
+ *
+ * `--EXPECT--` asks whether the compiler wrote what it meant to write, and
+ * `--RUN--` asks whether what it wrote does what it said. Text is not enough on
+ * its own: a guard reading `['string']` looks perfect and refuses an array of
+ * strings, and a fixture that stops at the text passes while it does.
  */
 final class PhptRunner
 {
@@ -68,6 +74,61 @@ final class PhptRunner
             return 'compile failed: ' . $e->getMessage();
         }
     }
+    /**
+     * Runs, treating a compile failure as a result rather than an error, for
+     * the same reason `compileOrFailure` does.
+     *
+     * @param array<string, string> $sections
+     */
+    public static function runOrFailure(array $sections): string
+    {
+        try {
+            return self::run($sections);
+        } catch (\Throwable $e) {
+            return 'compile failed: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Compiles, then runs what was compiled, and answers with what it printed.
+     *
+     * Run in its own process, with phunkie's autoloader in front of it, because
+     * the guards are phunkie's functions and the whole point of running it is
+     * to find out what they do with what the compiler wrote.
+     *
+     * Errors come back with the output rather than beside it. A guard that
+     * refuses a value it should have accepted is a `TypeError`, and that is the
+     * result the fixture is asking about.
+     *
+     * @param array<string, string> $sections
+     *
+     * @return string Everything the compiled PHP printed, trimmed
+     */
+    public static function run(array $sections): string
+    {
+        $temporary = [];
+        $output = self::temporaryFile('run', 'php', $temporary);
+
+        file_put_contents($output, self::compile($sections));
+
+        $bootstrap = self::temporaryFile('boot', 'php', $temporary);
+        file_put_contents($bootstrap, sprintf(
+            "<?php\nrequire %s;\nrequire %s;\n",
+            var_export(dirname(__DIR__, 3) . '/vendor/autoload.php', true),
+            var_export($output, true)
+        ));
+
+        $printed = shell_exec(sprintf('%s %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg($bootstrap)));
+
+        foreach ($temporary as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+
+        return trim((string) $printed);
+    }
+
     /**
      * @return array<string, string> section name (without dashes) => body
      */

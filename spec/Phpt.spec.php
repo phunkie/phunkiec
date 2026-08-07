@@ -17,18 +17,32 @@ describe("phpt fixtures", function () {
                 // fails and the marker has to be removed rather than rotting.
                 if (isset($sections["PENDING"])) {
                     it($name . " (pending)", function () use ($sections) {
-                        $expected = $sections["EXPECT"];
+                        $runs = isset($sections["RUN"]);
+                        $expected = $runs ? $sections["RUN"] : $sections["EXPECT"];
+                        $actual = $runs
+                            ? PhptRunner::runOrFailure($sections)
+                            : PhptRunner::compileOrFailure($sections);
 
-                        expect(PhptRunner::compileOrFailure($sections))
-                            ->toSatisfy(fn ($compiled) => $compiled !== $expected);
+                        expect($actual)->toSatisfy(fn ($got) => $got !== $expected);
                     });
 
                     continue;
                 }
 
-                it($name, function () use ($sections) {
-                    expect(PhptRunner::compile($sections))->toBe($sections["EXPECT"]);
-                });
+                if (isset($sections["EXPECT"])) {
+                    it($name, function () use ($sections) {
+                        expect(PhptRunner::compile($sections))->toBe($sections["EXPECT"]);
+                    });
+                }
+
+                // Compiling the right text and doing the right thing are two
+                // questions, and only the second one catches a guard that reads
+                // perfectly and refuses what it was written to accept.
+                if (isset($sections["RUN"])) {
+                    it($name . " (running)", function () use ($sections) {
+                        expect(PhptRunner::run($sections))->toBe($sections["RUN"]);
+                    });
+                }
             }
         });
     }

@@ -15,22 +15,12 @@ final class Box<T>
 --EXPECT--
 <?php
 
-final class Box implements \Phunkie\Types\Kind
+final class Box
 {
     private $value;
 
     public function put($item, $fallback, $either): int
     {
-        assertTypeVariable($item, 'T', $this, 'Box::put', 1, 'item');
         return 1;
-    }
-    public const typeParameters = ['T'];
-    public function getTypeArity(): int
-    {
-        return 1;
-    }
-    public function getTypeVariables(): array
-    {
-        return typeArgumentsHeldBy($this);
     }
 }

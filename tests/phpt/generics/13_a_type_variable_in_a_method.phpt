@@ -1,5 +1,5 @@
 --TEST--
-A method may use the type variables its class declared
+A type variable erases wherever its class declared it, and promises nothing
 --FILE--
 <?php
 
@@ -24,27 +24,17 @@ final class Stack<T>
 
 use Phunkie\Types\ImmList;
 
-final class Stack implements \Phunkie\Types\Kind
+final class Stack
 {
     private array $items;
 
     public function push($item): Stack
     {
-        assertTypeVariable($item, 'T', $this, 'Stack::push', 1, 'item');
-        return assertReturnTypeArguments(new Stack(), ['T'], 'Stack::push', $this);
+        return new Stack();
     }
 
     public function all(): ImmList
     {
-        return assertReturnTypeArguments(ImmList(...$this->items), ['T'], 'Stack::all', $this);
-    }
-    public const typeParameters = ['T'];
-    public function getTypeArity(): int
-    {
-        return 1;
-    }
-    public function getTypeVariables(): array
-    {
-        return typeArgumentsHeldBy($this);
+        return ImmList(...$this->items);
     }
 }

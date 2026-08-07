@@ -1,5 +1,5 @@
 --TEST--
-A static method promises nothing about a type its class bound, having no object
+A type its class bound is promised by no method, static or not
 --FILE--
 <?php
 
@@ -18,7 +18,7 @@ final class Stack<T>
 --EXPECT--
 <?php
 
-final class Stack implements \Phunkie\Types\Kind
+final class Stack
 {
     public static function empty(): ImmList
     {
@@ -27,15 +27,6 @@ final class Stack implements \Phunkie\Types\Kind
 
     public function all(): ImmList
     {
-        return assertReturnTypeArguments(ImmList(), ['T'], 'Stack::all', $this);
-    }
-    public const typeParameters = ['T'];
-    public function getTypeArity(): int
-    {
-        return 1;
-    }
-    public function getTypeVariables(): array
-    {
-        return typeArgumentsHeldBy($this);
+        return ImmList();
     }
 }

@@ -118,37 +118,23 @@ final class ErasureVisitor extends NodeVisitorAbstract
         $parameters = $header === null ? [] : $this->namesOf($header);
 
         $this->classes[] = new Enclosing($node->name?->toString(), $parameters);
-
-        if ($parameters === []) {
-            return;
-        }
-
-        $this->insertBefore($node, $this->marker->writeType($parameters));
     }
 
     /**
-     * A declaration is read against two sets of type parameters, and they are
-     * not interchangeable.
+     * Every type parameter reads the same to a guard now: unpromisable.
      *
-     * What the class bound is what a guard can resolve: `assertTypeVariable`
-     * asks the object it was called on what it is holding. What the
-     * declaration bound itself, as `map<A, B>` does, is held by nobody, so
-     * naming it in a promise would write a guard that goes looking for a class
-     * called A. Those come out of the source all the same, because `A $a` is
-     * not PHP, and they promise nothing until there is somewhere for a
-     * method's own arguments to live.
-     *
-     * A static declaration is in the second set rather than the first, whatever
-     * its class bound, because there is no object there to be asked. The guard
-     * it would otherwise be given reads `$this` in a scope that has none, which
-     * PHP stops the moment the method is called.
+     * A variable's declaration comes out of the source, because `T $item` is
+     * not PHP, and nothing about it reaches the runtime. What T stands for
+     * used to be answered by the object, through Kind, and Kind is not part
+     * of 2.0: a variable is the checker's business, and a promise naming one
+     * would be compared against values as the letter T, refusing whatever
+     * the object actually holds. Only concrete names are promised.
      */
     private function enterFunction(ClassMethod|Function_|Closure $node): void
     {
         $enclosing = $this->enclosing();
-        $unreachable = $this->hasNoObject($node) ? $enclosing->parameters : [];
-        $held = array_values(array_diff($enclosing->parameters, $unreachable));
-        $bound = array_merge($this->namesBoundBy($node), $unreachable);
+        $held = [];
+        $bound = array_merge($this->namesBoundBy($node), $enclosing->parameters);
         $types = $this->typesIn($node);
 
         $parameters = [];
@@ -386,19 +372,6 @@ final class ErasureVisitor extends NodeVisitorAbstract
         }
 
         return array_map('strval', $type->arguments);
-    }
-
-    /**
-     * Whether a declaration runs without an object behind it, and so has
-     * nothing to ask what its class's type parameters stand for.
-     */
-    private function hasNoObject(ClassMethod|Function_|Closure $node): bool
-    {
-        if ($node instanceof ClassMethod) {
-            return $node->isStatic();
-        }
-
-        return $node instanceof Closure ? $node->static : true;
     }
 
     /**

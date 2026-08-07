@@ -1,0 +1,137 @@
+{
+    "v": 1,
+    "offers": [
+        {
+            "id": "o_6f0f69f9",
+            "kind": "generate",
+            "action": "create_method",
+            "target": "Phunkie\\Compiler\\Generics\\GuardVisitor::guardReturn",
+            "data": {
+                "candidates": {
+                    "undefinedSteps": [],
+                    "missingSpecClasses": [],
+                    "missingStepClasses": [],
+                    "missingMockTypes": [],
+                    "undefinedMockInterfaceMethods": [],
+                    "undefinedClassMethods": [
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        },
+                        {
+                            "className": "Phunkie\\Compiler\\Generics\\GuardVisitor",
+                            "methodName": "guardReturn",
+                            "file": "/Users/md/code/phunkie/phunkiec/tests/phpt/support/PhptRunner.php",
+                            "line": 189
+                        }
+                    ],
+                    "fakeableMethods": []
+                }
+            }
+        }
+    ]
+}

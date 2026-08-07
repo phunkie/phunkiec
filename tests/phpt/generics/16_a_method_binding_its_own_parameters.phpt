@@ -1,5 +1,5 @@
 --TEST--
-A method binding its own type parameters compiles, and promises nothing yet
+A method binding its own type parameters compiles, and promises nothing
 --FILE--
 <?php
 
@@ -13,20 +13,11 @@ final class Stack<T>
 --EXPECT--
 <?php
 
-final class Stack implements \Phunkie\Types\Kind
+final class Stack
 {
     public function map($a, ImmList $counts): ImmList
     {
         assertTypeArguments($counts, ['Int'], 'Stack::map', 2, 'counts');
         return ImmList();
-    }
-    public const typeParameters = ['T'];
-    public function getTypeArity(): int
-    {
-        return 1;
-    }
-    public function getTypeVariables(): array
-    {
-        return typeArgumentsHeldBy($this);
     }
 }

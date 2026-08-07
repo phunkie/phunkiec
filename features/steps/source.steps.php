@@ -29,6 +29,18 @@ given("a phunkie file containing:", function (string $source) {
     file_put_contents($file, "<?php\n\n" . $source . "\n");
 });
 
+// Written exactly as given, tag and all missing, because opening the tag is
+// what moves every line down and is the thing under test.
+given("a phunkie file with no opening tag containing:", function (string $source) {
+    $file = $this->workspace . '/src/Example.phunkie';
+
+    if (!is_dir(dirname($file))) {
+        mkdir(dirname($file), 0777, true);
+    }
+
+    file_put_contents($file, $source . "\n");
+});
+
 when("I compile it", function () {
     ($this->compile)('src/Example.phunkie', 'build/Example.php');
 });

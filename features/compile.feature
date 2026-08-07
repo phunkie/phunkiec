@@ -22,6 +22,18 @@ Feature: Developer can compile a .phunkie file into .php
     Then the compiler should have failed saying "The compiled PHP does not parse"
     And the failure should name the line it broke on
 
+  # The compiler opens the tag for a source that did not open its own, so the
+  # line PHP counts to is two past the line the reader would count to. Naming a
+  # line that is not in the file you were handed is worse than naming none.
+  Scenario: The line named is a line in the file that was written
+    Given a phunkie file with no opening tag containing:
+      """
+      $ok = 1;
+      $todo = ;
+      """
+    When I compile it
+    Then the compiler should have failed saying "on line 2"
+
   Scenario: PHP that does not parse is not written
     Given a phunkie file containing:
       """

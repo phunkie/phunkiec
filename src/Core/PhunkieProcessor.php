@@ -98,7 +98,7 @@ class PhunkieProcessor
             // whole. Leaving the last good output alone is the friendlier
             // failure, and under a watch it is the only one that lets you keep
             // working while you fix the source.
-            $this->syntax->assertParses($transformed);
+            $this->syntax->assertParses($transformed, $this->openingTag->linesAddedTo($written));
 
             $this->ensureDirectory(dirname($outputPath));
 

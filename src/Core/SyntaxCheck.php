@@ -22,9 +22,13 @@ use RuntimeException;
 final class SyntaxCheck
 {
     /**
+     * @param string $code    Compiled PHP
+     * @param int    $addedTo Lines the compiler put in front of what the reader
+     *                        wrote, which come off again before the line is named
+     *
      * @throws RuntimeException when the code is not PHP that parses
      */
-    public function assertParses(string $code): void
+    public function assertParses(string $code, int $addedTo = 0): void
     {
         if (trim($code) === '') {
             return;
@@ -36,7 +40,7 @@ final class SyntaxCheck
             throw new RuntimeException(sprintf(
                 'The compiled PHP does not parse: %s on line %d.',
                 $e->getMessage(),
-                $e->getLine()
+                max(1, $e->getLine() - $addedTo)
             ));
         }
     }

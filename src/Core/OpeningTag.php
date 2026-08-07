@@ -35,4 +35,21 @@ final class OpeningTag
 
         return self::TAG . $source;
     }
+
+    /**
+     * How far the tag moves everything down.
+     *
+     * Whoever reports a line in the compiled PHP has to take this off again, or
+     * it names a line in a file the reader never wrote. Asked here because this
+     * is what put the lines there, and nothing else should have to know how
+     * many they are.
+     *
+     * @param string $source Source exactly as the reader wrote it
+     *
+     * @return int Lines added to it, none where it opened its own tag
+     */
+    public function linesAddedTo(string $source): int
+    {
+        return $this->ensure($source) === $source ? 0 : substr_count(self::TAG, "\n");
+    }
 }

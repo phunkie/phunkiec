@@ -127,16 +127,16 @@
         },
         {
             "name": "phunkie/phunkie",
-            "version": "1.4.1",
+            "version": "1.4.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phunkie/phunkie.git",
-                "reference": "83ba4f569dd471b46c88bac3df892fcc7ad0e941"
+                "reference": "021f79a3655d0fa5d68e5cb250006631930509be"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phunkie/phunkie/zipball/83ba4f569dd471b46c88bac3df892fcc7ad0e941",
-                "reference": "83ba4f569dd471b46c88bac3df892fcc7ad0e941",
+                "url": "https://api.github.com/repos/phunkie/phunkie/zipball/021f79a3655d0fa5d68e5cb250006631930509be",
+                "reference": "021f79a3655d0fa5d68e5cb250006631930509be",
                 "shasum": ""
             },
             "require": {
@@ -174,9 +174,9 @@
             "description": "Functional structures library for PHP",
             "support": {
                 "issues": "https://github.com/phunkie/phunkie/issues",
-                "source": "https://github.com/phunkie/phunkie/tree/1.4.1"
+                "source": "https://github.com/phunkie/phunkie/tree/1.4.2"
             },
-            "time": "2026-08-05T07:34:49+00:00"
+            "time": "2026-08-07T06:58:21+00:00"
         },
         {
             "name": "phunkie/phunkistan",

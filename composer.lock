@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "079aac60d28ef2d8c923b47478be5e93",
+    "content-hash": "5f8ee3beb05165eacfd85af287569b49",
     "packages": [
         {
             "name": "md/syn",
@@ -180,16 +180,16 @@
         },
         {
             "name": "phunkie/phunkistan",
-            "version": "0.1",
+            "version": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phunkie/phunkistan.git",
-                "reference": "5123da02f901577126ae31530655f7c1394b9ea5"
+                "reference": "f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phunkie/phunkistan/zipball/5123da02f901577126ae31530655f7c1394b9ea5",
-                "reference": "5123da02f901577126ae31530655f7c1394b9ea5",
+                "url": "https://api.github.com/repos/phunkie/phunkistan/zipball/f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7",
+                "reference": "f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7",
                 "shasum": ""
             },
             "require": {
@@ -201,16 +201,21 @@
                 "phpspec/phpspec": "9.x-dev",
                 "phpstan/phpstan": "^2.2"
             },
+            "default-branch": true,
             "bin": [
                 "bin/phunkistan"
             ],
             "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "0.2.x-dev"
+                }
+            },
             "autoload": {
                 "psr-4": {
                     "Phunkie\\Stan\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -222,10 +227,10 @@
             ],
             "description": "A type checker for phunkie",
             "support": {
-                "issues": "https://github.com/phunkie/phunkistan/issues",
-                "source": "https://github.com/phunkie/phunkistan/tree/0.1"
+                "source": "https://github.com/phunkie/phunkistan/tree/main",
+                "issues": "https://github.com/phunkie/phunkistan/issues"
             },
-            "time": "2026-08-06T13:08:14+00:00"
+            "time": "2026-08-07T16:04:22+00:00"
         },
         {
             "name": "psr/container",
@@ -1299,7 +1304,8 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "phpspec/phpspec": 20
+        "phpspec/phpspec": 20,
+        "phunkie/phunkistan": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

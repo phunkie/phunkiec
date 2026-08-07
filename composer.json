@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.2 || ^8.3 || ^8.4 || ^8.5",
-        "phunkie/phunkistan": "^0.1",
+        "phunkie/phunkistan": "dev-main",
         "phunkie/phunkie": "^1.4 || ^2.0",
         "md/syn": "^0.2",
         "symfony/console": "^7.0",
@@ -35,5 +35,11 @@
         "platform": {
             "php": "8.2.0"
         }
-    }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/phunkie/phunkistan"
+        }
+    ]
 }

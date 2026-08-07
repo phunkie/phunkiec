@@ -50,7 +50,12 @@ final class Edits
     {
         $edits = $this->edits;
 
-        usort($edits, static fn (Edit $one, Edit $other): int => $one->region->from <=> $other->region->from);
+        // Ties are broken by width, the narrower first. An insertion and a
+        // replacement can share an offset, a marker going in front of the very
+        // word a substitution rewrites, and the edits are applied from the end
+        // backwards: the replacement must run before the insertion has moved
+        // the text it measured, or it rewrites what was just inserted.
+        usort($edits, static fn (Edit $one, Edit $other): int => [$one->region->from, $one->region->to] <=> [$other->region->from, $other->region->to]);
 
         $ordered = [];
 

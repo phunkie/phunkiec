@@ -58,16 +58,28 @@ final class Erasure
     {
         $read = $this->notation->readFrom($source);
 
-        if ($read->blanks === []) {
+        if ($read->erasures === [] && $read->substitutions === []) {
             return $source;
         }
 
         $removals = array_map(
-            static fn (Region $blank): Edit => new Edit($blank),
-            $read->blanks
+            static fn (Region $erasure): Edit => new Edit($erasure),
+            $read->erasures
         );
 
-        return (new Edits(array_merge($removals, $this->promised($read))))->applyTo($source);
+        // A substitution is notation the output keeps in another spelling,
+        // `typeclass` becoming `interface`. The stand-in already wrote the
+        // spelling, at the same offsets, so the compiler adopts its text
+        // rather than forming a second opinion about what the word should be.
+        $substitutions = array_map(
+            static fn (Region $region): Edit => new Edit(
+                $region,
+                substr($read->php, $region->from, $region->to - $region->from)
+            ),
+            $read->substitutions
+        );
+
+        return (new Edits(array_merge($removals, $substitutions, $this->promised($read))))->applyTo($source);
     }
 
     /**

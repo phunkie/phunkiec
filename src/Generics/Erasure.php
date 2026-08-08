@@ -10,6 +10,7 @@ use PhpParser\NodeTraverser;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
 use Phunkie\Stan\Source\Region;
+use Phunkie\Stan\Type\ClassSynthesis;
 use Phunkie\Stan\Type\Notation;
 use Phunkie\Stan\Type\ReadNotation;
 use RuntimeException;
@@ -44,6 +45,7 @@ final class Erasure
     public function __construct(
         private readonly Notation $notation = new Notation(),
         private readonly Marker $marker = new Marker(),
+        private readonly SynthesisWriter $writer = new SynthesisWriter(),
     ) {
         $this->parser = (new ParserFactory())->createForNewestSupportedVersion();
     }
@@ -58,7 +60,7 @@ final class Erasure
     {
         $read = $this->notation->readFrom($source);
 
-        if ($read->erasures === [] && $read->substitutions === []) {
+        if ($read->erasures === [] && $read->substitutions === [] && $read->syntheses === []) {
             return $source;
         }
 
@@ -79,7 +81,15 @@ final class Erasure
             $read->substitutions
         );
 
-        return (new Edits(array_merge($removals, $substitutions, $this->promised($read))))->applyTo($source);
+        // A synthesis is the one notation the compiler writes rather than
+        // removes: the declaration stated what the class is made of, and the
+        // class itself has to come from somewhere.
+        $written = array_map(
+            fn (ClassSynthesis $synthesis): Edit => new Edit($synthesis->region, $this->writer->write($synthesis)),
+            $read->syntheses
+        );
+
+        return (new Edits(array_merge($removals, $substitutions, $written, $this->promised($read))))->applyTo($source);
     }
 
     /**
@@ -94,7 +104,11 @@ final class Erasure
     {
         $nodes = $this->parse($read->php);
 
-        if ($nodes === []) {
+        // A file whose only notation was bodyless classes stands in as empty
+        // statements, so an empty tree is what success looks like: there are
+        // no declarations left to promise anything. With no synthesis to
+        // account for it, an empty tree means nothing could be read at all.
+        if ($nodes === [] && $read->syntheses === []) {
             throw new RuntimeException(
                 'The source promised something in its types, and none of its declarations could be read.'
             );

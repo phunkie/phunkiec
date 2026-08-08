@@ -184,12 +184,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/phunkie/phunkistan.git",
-                "reference": "f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7"
+                "reference": "f12c4ef24b8491306fe6e5d220e0450c53422a89"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phunkie/phunkistan/zipball/f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7",
-                "reference": "f51d4202d7cd4ab83634c4fa8bcd6ef73fe45ef7",
+                "url": "https://api.github.com/repos/phunkie/phunkistan/zipball/f12c4ef24b8491306fe6e5d220e0450c53422a89",
+                "reference": "f12c4ef24b8491306fe6e5d220e0450c53422a89",
                 "shasum": ""
             },
             "require": {
@@ -230,7 +230,7 @@
                 "source": "https://github.com/phunkie/phunkistan/tree/main",
                 "issues": "https://github.com/phunkie/phunkistan/issues"
             },
-            "time": "2026-08-07T16:04:22+00:00"
+            "time": "2026-08-08T08:44:50+00:00"
         },
         {
             "name": "psr/container",

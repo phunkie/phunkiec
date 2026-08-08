@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Generics;
 
-use PhpParser\Modifiers;
 use PhpParser\Node;
 use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
-use PhpParser\Node\Identifier;
 use PhpParser\Node\Expr\ArrowFunction;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\Closure;
@@ -18,10 +16,6 @@ use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\Int_;
 use PhpParser\Node\Scalar\String_;
-use PhpParser\Node\Const_;
-use PhpParser\Node\Stmt\ClassConst;
-use PhpParser\Node\Stmt\ClassMethod;
-use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Expression;
 use PhpParser\Node\Stmt\Return_;
 use PhpParser\NodeVisitorAbstract;
@@ -37,8 +31,6 @@ use PhpParser\NodeVisitorAbstract;
  */
 final class GuardVisitor extends NodeVisitorAbstract
 {
-    private const KIND = 'Phunkie\\Types\\Kind';
-
     /**
      * @var list<Signature|null>
      */

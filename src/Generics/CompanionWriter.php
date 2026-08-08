@@ -39,27 +39,21 @@ final class CompanionWriter
     private function one(CompanionSynthesis $companion, ?string $namespace): string
     {
         $fqn = '\\' . ($namespace !== null ? $namespace . '\\' : '') . $companion->class;
+        $name = $companion->named ?? $companion->class;
 
         if ($companion->variadic !== null) {
-            [$cons, $empty] = $companion->variadic;
-
-            return $this->guarded($companion->class, sprintf('mixed ...$values): %s', $fqn),
-                "        \$list = {$empty};\n\n"
-                . "        foreach (array_reverse(\$values) as \$value) {\n"
-                . "            \$list = {$cons}(\$value, \$list);\n"
-                . "        }\n\n"
-                . "        return \$list;\n");
+            return $this->variadic($companion, $name, $fqn);
         }
 
         if ($companion->nullable !== null) {
             [$some, $empty] = $companion->nullable;
 
-            return $this->guarded($companion->class, sprintf('mixed $value = null): %s', $fqn),
+            return $this->guarded($name, sprintf('mixed $value = null): %s', $fqn),
                 "        return null === \$value ? {$empty} : {$some}(\$value);\n");
         }
 
         if ($companion->singleton) {
-            $function = $this->guarded($companion->class, sprintf('): %s', $fqn),
+            $function = $this->guarded($name, sprintf('): %s', $fqn),
                 "        static \$instance;\n\n"
                 . "        return \$instance ??= new {$fqn}();\n");
 
@@ -68,13 +62,43 @@ final class CompanionWriter
             }
 
             return $function . "\n\n"
-                . "if (!defined('{$companion->class}')) {\n"
-                . "    define('{$companion->class}', {$companion->class}());\n"
+                . "if (!defined('{$name}')) {\n"
+                . "    define('{$name}', {$name}());\n"
                 . '}';
         }
 
-        return $this->guarded($companion->class, sprintf('%s): %s', $this->arguments($companion), $fqn),
+        return $this->guarded($name, sprintf('%s): %s', $this->arguments($companion), $fqn),
             sprintf("        return new %s(%s);\n", $fqn, $this->forwarded($companion)));
+    }
+
+    /**
+     * The fold, whose meaning reads what it decorates: on the family's head
+     * it accepts nothing and answers the empty case, and on the cons case
+     * itself an empty call would be a lie, so it refuses one and answers a
+     * chain that provably has a head.
+     */
+    private function variadic(CompanionSynthesis $companion, string $name, string $fqn): string
+    {
+        [$cons, $empty] = $companion->variadic ?? ['', ''];
+
+        if ($companion->class === $cons) {
+            return $this->guarded($name, sprintf('mixed ...$values): %s', $fqn),
+                "        if (\$values === []) {\n"
+                . "            throw new \InvalidArgumentException('{$name}() needs at least one value.');\n"
+                . "        }\n\n"
+                . "        \$list = {$empty};\n\n"
+                . "        foreach (array_reverse(array_slice(\$values, 1)) as \$value) {\n"
+                . "            \$list = {$cons}(\$value, \$list);\n"
+                . "        }\n\n"
+                . "        return {$cons}(\$values[0], \$list);\n");
+        }
+
+        return $this->guarded($name, sprintf('mixed ...$values): %s', $fqn),
+            "        \$list = {$empty};\n\n"
+            . "        foreach (array_reverse(\$values) as \$value) {\n"
+            . "            \$list = {$cons}(\$value, \$list);\n"
+            . "        }\n\n"
+            . "        return \$list;\n");
     }
 
     private function guarded(string $name, string $signatureTail, string $body): string

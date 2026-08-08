@@ -63,6 +63,22 @@ describe("Companions", function () {
         expect($result)->toContain('return null === $value ? None : Some($value);');
     });
 
+    // On the head the fold accepts nothing and answers the empty case; on the
+    // cons case itself an empty call would be a lie, so it refuses one. The
+    // recipe reads what it decorates.
+    it("demands at least one value when the variadic face is the cons case's own", function () use ($add) {
+        $result = $add(
+            "namespace Phunkie\\Types;\n#[Companion(withArguments: true)]\n#[Companion(named: Nel, variadic: [NonEmptyList, Nil])]\nfinal class NonEmptyList<T>(T \$head, ImmList<T> \$tail) extends ImmList<T>;",
+            "<?php\n\nnamespace Phunkie\\Types;\n\nfinal class NonEmptyList extends ImmList\n{\n}\n"
+        );
+
+        expect($result)->toContain('function NonEmptyList(mixed $head, mixed $tail): \Phunkie\Types\NonEmptyList');
+        expect($result)->toContain('function Nel(mixed ...$values): \Phunkie\Types\NonEmptyList');
+        expect($result)->toContain("throw new \InvalidArgumentException('Nel() needs at least one value.');");
+        expect($result)->toContain('foreach (array_reverse(array_slice($values, 1)) as $value) {');
+        expect($result)->toContain('return NonEmptyList($values[0], $list);');
+    });
+
     it("leaves a file with no companions exactly as it was", function () use ($add) {
         expect($add('final class Plain {}', "<?php\nfinal class Plain {}\n"))->toBe("<?php\nfinal class Plain {}\n");
     });

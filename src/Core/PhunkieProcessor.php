@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phunkie\Compiler\Core;
 
+use Phunkie\Compiler\Generics\Companions;
 use Phunkie\Compiler\Generics\Erasure;
 use Phunkie\Compiler\Generics\GuardInjector;
 use RuntimeException;
@@ -17,6 +18,7 @@ class PhunkieProcessor
     private MacroLoader $macroLoader;
     private Erasure $erasure;
     private GuardInjector $guards;
+    private Companions $companions;
     private SyntaxCheck $syntax;
     private Grammar $grammar;
     private OpeningTag $openingTag;
@@ -29,6 +31,7 @@ class PhunkieProcessor
         $this->transformer = new Transformer($this->macroLoader);
         $this->erasure = new Erasure();
         $this->guards = new GuardInjector();
+        $this->companions = new Companions();
         $this->syntax = new SyntaxCheck();
         $this->grammar = new Grammar();
         $this->openingTag = new OpeningTag();
@@ -93,6 +96,13 @@ class PhunkieProcessor
                     $this->transformer->transform($this->erasure->erase($content), $file)
                 );
 
+            // After the guards, so nothing guards the generated functions, and
+            // before the parse assertion, so what they add is held to the same
+            // bar as everything else.
+            $withCompanions = $this->companions->addTo($content, $transformed);
+            $companions = $withCompanions !== $transformed;
+            $transformed = $withCompanions;
+
             // Before anything is written, because a file that is known not to
             // parse is worse on disk than absent: a build made of it looks
             // whole. Leaving the last good output alone is the friendlier
@@ -109,6 +119,7 @@ class PhunkieProcessor
                 'status' => 'ok',
                 'lines' => $lines,
                 'output' => $outputPath,
+                'companions' => $companions,
             ];
         } catch (\Throwable $e) {
             return [
@@ -116,6 +127,7 @@ class PhunkieProcessor
                 'status' => 'error',
                 'lines' => $lines,
                 'output' => $outputPath,
+                'companions' => false,
                 'error' => $e->getMessage(),
             ];
         }
@@ -168,11 +180,42 @@ class PhunkieProcessor
         $outputDirectory = new OutputDirectory($outputDir);
 
         $results = [];
+        $withCompanions = [];
         foreach ((new SourceTree($inputDir))->files() as $source) {
-            $results[] = $this->processFile($source->path, $outputDirectory->forSource($source->relativePath));
+            $results[] = $result = $this->processFile($source->path, $outputDirectory->forSource($source->relativePath));
+
+            if ($result['status'] === 'ok' && $result['companions']) {
+                $withCompanions[] = $result['output'];
+            }
         }
 
+        $this->writeLoader($outputDir, $withCompanions);
+
         return $results;
+    }
+
+    /**
+     * Writes the loader that brings every companion in at once.
+     *
+     * A companion is a function and functions cannot be autoloaded, so a
+     * project requires `<out>/companions.php` from its bootstrap and the
+     * constructors exist before the first call, whichever class loads first.
+     * Written even when empty, so a build always says what it found.
+     *
+     * @param list<string> $outputs Compiled files whose companions must load
+     */
+    private function writeLoader(string $outputDir, array $outputs): void
+    {
+        $out = rtrim($outputDir, '/');
+
+        $lines = array_map(
+            static fn (string $output): string => sprintf("require_once __DIR__ . '/%s';", substr($output, strlen($out) + 1)),
+            $outputs
+        );
+
+        $this->ensureDirectory($out);
+
+        $this->write($out . '/companions.php', "<?php\n\n" . implode("\n", $lines) . "\n");
     }
 
     private function loadConfigurationMacros(Configuration $configuration): void

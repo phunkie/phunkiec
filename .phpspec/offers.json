@@ -132,6 +132,44 @@
                     "fakeableMethods": []
                 }
             }
+        },
+        {
+            "id": "o_b890ec5e",
+            "kind": "generate",
+            "action": "create_class",
+            "target": "Phunkie\\Compiler\\Generics\\Companions",
+            "data": {
+                "candidates": {
+                    "undefinedSteps": [],
+                    "missingSpecClasses": [
+                        "Phunkie\\Compiler\\Generics\\Companions"
+                    ],
+                    "missingStepClasses": [],
+                    "missingMockTypes": [],
+                    "undefinedMockInterfaceMethods": [],
+                    "undefinedClassMethods": [],
+                    "fakeableMethods": []
+                }
+            }
+        },
+        {
+            "id": "o_620dd11d",
+            "kind": "generate",
+            "action": "create_class",
+            "target": "Phunkie\\Compiler\\Core\\Companions",
+            "data": {
+                "candidates": {
+                    "undefinedSteps": [],
+                    "missingSpecClasses": [
+                        "Phunkie\\Compiler\\Core\\Companions"
+                    ],
+                    "missingStepClasses": [],
+                    "missingMockTypes": [],
+                    "undefinedMockInterfaceMethods": [],
+                    "undefinedClassMethods": [],
+                    "fakeableMethods": []
+                }
+            }
         }
     ]
 }

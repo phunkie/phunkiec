@@ -10,6 +10,7 @@ use PhpParser\NodeTraverser;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
 use Phunkie\Stan\Source\Region;
+use Phunkie\Stan\Type\BlockMethod;
 use Phunkie\Stan\Type\ClassSynthesis;
 use Phunkie\Stan\Type\Notation;
 use Phunkie\Stan\Type\ReadNotation;
@@ -46,6 +47,7 @@ final class Erasure
         private readonly Notation $notation = new Notation(),
         private readonly Marker $marker = new Marker(),
         private readonly SynthesisWriter $writer = new SynthesisWriter(),
+        private readonly BlockMethodWriter $methods = new BlockMethodWriter(),
     ) {
         $this->parser = (new ParserFactory())->createForNewestSupportedVersion();
     }
@@ -60,7 +62,7 @@ final class Erasure
     {
         $read = $this->notation->readFrom($source);
 
-        if ($read->erasures === [] && $read->substitutions === [] && $read->syntheses === []) {
+        if ($read->erasures === [] && $read->substitutions === [] && $read->syntheses === [] && $read->blockMethods === []) {
             return $source;
         }
 
@@ -89,7 +91,12 @@ final class Erasure
             $read->syntheses
         );
 
-        return (new Edits(array_merge($removals, $substitutions, $written, $this->promised($read))))->applyTo($source);
+        $methods = array_map(
+            fn (BlockMethod $method): Edit => new Edit($method->region, $this->methods->write($method)),
+            $read->blockMethods
+        );
+
+        return (new Edits(array_merge($removals, $substitutions, $written, $methods, $this->promised($read))))->applyTo($source);
     }
 
     /**

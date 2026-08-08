@@ -20,6 +20,22 @@ use Phunkie\Stan\Type\SynthesisParameter;
 final class SynthesisWriter
 {
     /**
+     * The members alone, for a declaration whose braces came back: the class
+     * stays as written, and these go just inside the body's opening brace.
+     *
+     * @param ClassSynthesis $synthesis What the reader declared
+     *
+     * @return string Properties and constructor, indented for a class body
+     */
+    public function members(ClassSynthesis $synthesis): string
+    {
+        return "\n" . $this->properties($synthesis)
+            . "\n\n    public function __construct(" . $this->arguments($synthesis) . ")\n    {\n"
+            . $this->assignments($synthesis)
+            . "\n    }\n";
+    }
+
+    /**
      * @param ClassSynthesis $synthesis What the reader declared
      *
      * @return string The class as PHP, ready to stand where the declaration stood
@@ -36,25 +52,30 @@ final class SynthesisWriter
             return $head . "\n{\n}";
         }
 
-        $properties = array_map(
+        return $head . "\n{" . $this->members($synthesis) . "}";
+    }
+
+    private function properties(ClassSynthesis $synthesis): string
+    {
+        return implode("\n", array_map(
             static fn (SynthesisParameter $parameter): string => sprintf('    public readonly %s $%s;', $parameter->phpType ?? 'mixed', $parameter->name),
             $synthesis->parameters
-        );
+        ));
+    }
 
-        $arguments = array_map(
+    private function arguments(ClassSynthesis $synthesis): string
+    {
+        return implode(', ', array_map(
             static fn (SynthesisParameter $parameter): string => sprintf('%s $%s', $parameter->phpType ?? 'mixed', $parameter->name),
             $synthesis->parameters
-        );
+        ));
+    }
 
-        $assignments = array_map(
+    private function assignments(ClassSynthesis $synthesis): string
+    {
+        return implode("\n", array_map(
             static fn (SynthesisParameter $parameter): string => sprintf('        $this->%s = $%s;', $parameter->name, $parameter->name),
             $synthesis->parameters
-        );
-
-        return $head . "\n{\n"
-            . implode("\n", $properties)
-            . "\n\n    public function __construct(" . implode(', ', $arguments) . ")\n    {\n"
-            . implode("\n", $assignments)
-            . "\n    }\n}";
+        ));
     }
 }

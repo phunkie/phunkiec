@@ -85,11 +85,24 @@ final class Erasure
 
         // A synthesis is the one notation the compiler writes rather than
         // removes: the declaration stated what the class is made of, and the
-        // class itself has to come from somewhere.
-        $written = array_map(
-            fn (ClassSynthesis $synthesis): Edit => new Edit($synthesis->region, $this->writer->write($synthesis)),
-            $read->syntheses
-        );
+        // class itself has to come from somewhere. When the braces came back,
+        // the class is already there: the clause goes, and the members slip
+        // in just inside the body.
+        $written = [];
+
+        foreach ($read->syntheses as $synthesis) {
+            if ($synthesis->bodyOpen === null) {
+                $written[] = new Edit($synthesis->region, $this->writer->write($synthesis));
+
+                continue;
+            }
+
+            $written[] = new Edit($synthesis->region);
+            $written[] = new Edit(
+                new Region($synthesis->bodyOpen + 1, $synthesis->bodyOpen + 1),
+                $this->writer->members($synthesis)
+            );
+        }
 
         $methods = array_map(
             fn (BlockMethod $method): Edit => new Edit($method->region, $this->methods->write($method)),
